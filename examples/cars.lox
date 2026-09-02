@@ -1,0 +1,20 @@
+var car1 = "BMW";
+var car2 = "Toyota";
+var car3 = "Lightning McQueen";
+
+
+if (car1 == "BMW")
+{
+
+    print "BMW: A Car of German Origin, comfortable and luxurious at a reasonable price, though the turn signals don't always work";
+}
+
+if (car2 == "Toyota")
+{
+    print "Toyota: A car of Japanese Origin, reliable, cheap, and dependable, the everymans car. A bit bland at times";
+}
+
+if(car3 == "Lightning McQueen")
+{
+    print "Lightning McQueen: Kerchow.";
+}

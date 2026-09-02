@@ -1,0 +1,139 @@
+//Note, this code is based off of munificent's craftinginterpreters 
+//repository code path  note/answers/chapter03_lox.md, with additionally added edge case tests. 
+
+
+class List 
+{
+  init(data, next) 
+  {
+    this.data = data;
+    this.next = next;
+  }
+
+  //maps the data within the list to a repsectivle node.
+  map(function) 
+  {
+    var data = function(this.data);
+    var next;
+    if (this.next != nil) next = this.next.map(function);
+    return List(data, next);
+  }
+
+  //displays the list.
+  display() 
+  {
+
+    var list = this;
+    while (list != nil) 
+    {
+      print(list.data);
+      list = list.next;
+    }
+  }
+}
+
+var list = List(1, List(2, List(3, List(4, nil))));
+
+//added in additional formatting
+print "";
+print "this section tests and displays a list with multiple values";
+
+list.display();
+
+//added displaySafe and mapSafe methods to check for nil
+fun displaySafe(list)
+{
+  if (list == nil)
+  {
+    print "The list is empty.";
+  }
+  else
+  {
+    list.display();
+  }
+}
+
+//checks to see if the list is set to nil
+fun mapSafe(list, function)
+{
+  if(list == nil)
+  {
+    return nil;
+  }
+
+  return list.map(function);
+
+}
+
+
+//doubles the value within a node
+fun double(n) 
+{ return n * 2; 
+
+}
+
+//tests for mapping over nil data
+fun identity(value)
+{
+  return value;
+}
+
+
+
+print "list values doubled"; // added for formatting
+list = list.map(double);
+list.display();
+
+
+
+//added edge case, empty list
+
+print ""; // formatting
+print "This section tests for an empty list";
+var empty = nil;
+
+displaySafe(empty);
+
+var mappedEmpty = mapSafe(empty, double);
+
+if (mappedEmpty == nil)
+{
+  print "Mapping an empty list returned an empty list.";
+}
+
+
+
+//added edge case, one element list 
+print ""; // formatting
+print "this section tests a One-element list";
+print "One-element list:";
+var one = List(42, nil);
+one.display();
+
+one = one.map(double);
+one.display();
+
+
+//added edge case, list with one node whose data is nil.
+
+print ""; // formatting
+print "this section tests a list with one node whose data is nil";
+
+var nilData = List (nil, nil);
+
+print "Comparing if the object nilData is equal to nil: ";
+print nilData == nil; //boolean , should fail as nilData is a List object
+
+print "Comparing if the node 'data' within nilData is equal to nil: ";
+print nilData.data == nil; //boolean, should be true as the data of the node is being compared to nil
+
+print "The data value within the node is: ";
+nilData.display();
+
+
+var copied = nilData.map(identity);//copied makes sure nil value is not being confused with the end of the list.
+
+print "Comparing if the verified node 'data' within nilData is equal to nil: ";
+print copied.data == nil; //boolean, should return true as the value inside the node is nil
+print "The verified data value within the node is: ";
+copied.display();

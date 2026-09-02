@@ -1,0 +1,9 @@
+// Test of first Lox program.
+
+print "Hello Lox";
+
+var name = "Billy Kid";
+
+print "Welcome to Rosecaelifer, " + name + "!";
+
+
