@@ -1,0 +1,26 @@
+var phrase = "Into the fire, unto the anvil of war";
+var answer = 18;
+
+print phrase;
+print answer;
+
+
+
+var characterName = "Alpharius";
+var legion = "XX";
+
+/* 
+    This block statement is here as proof that the modificaitons made to Scanner.java 
+    within the scanning folder were successful.
+*/
+fun display(characterName, legion)
+{
+    print "I am " + characterName + " Primarch of the " + legion 
+    + "the keeper of secrents, the Head of the Hydra, and you know nothing" ;
+}
+
+
+/* Lox is an interesting language
+    /*it is very barebones, but I feel I am learning much by tinkering with it */
+    this marks the end of this nested comment block. */
+*/
