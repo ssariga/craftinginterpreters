@@ -16,3 +16,6 @@ xcuserdata/
 # Dart stuff.
 /tool/.dart_tool/
 /tool/.packages
+trees-build/
+generator-build/
+*.class
