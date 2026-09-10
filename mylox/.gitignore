@@ -1,0 +1,6 @@
+# Java build output
+*.class
+mylox/out/
+mylox/generator-build/
+mylox/trees-build/
+

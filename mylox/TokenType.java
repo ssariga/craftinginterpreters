@@ -11,6 +11,9 @@ enum TokenType {
   GREATER, GREATER_EQUAL,
   LESS, LESS_EQUAL,
 
+  //Added for challenge Question 2, chapter 6
+  QUESTION, COLON,
+  
   // Literals.
   IDENTIFIER, STRING, NUMBER,
 

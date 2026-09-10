@@ -116,6 +116,8 @@ public class Lox {
         "[line " + line + "] Error" + where + ": " + message);
     hadError = true;
   }
+
+
 //< lox-error
 //> Parsing Expressions token-error
   static void error(Token token, String message) {

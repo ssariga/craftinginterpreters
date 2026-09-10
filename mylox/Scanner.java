@@ -151,6 +151,14 @@ class Scanner
 
       case '"': string(); break;
 
+      //added case ? and case : for challenge question 2 chapter 6
+      case '?':
+        addToken(TokenType.QUESTION);
+        break;
+      case ':':
+        addToken(TokenType.COLON);
+        break;
+
       default:
         if (isDigit(c)){
             number();

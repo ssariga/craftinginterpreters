@@ -54,6 +54,18 @@ class RpnPrinter implements Expr.Visitor<String>
 
 
 
+    //handles expressions like true 1.0 2.0 ?:
+    //added for challenge question 2, chapter 6
+  @Override
+  public String visitConditionalExpr(Expr.Conditional expr) 
+  {
+    return expr.condition.accept(this) + " "
+      + expr.thenBranch.accept(this) + " "
+      + expr.elseBranch.accept(this) + " ?:";
+  }
+
+
+
     //the below section handles testing.
     //comment it out when running Lox based RPN programs.
     public static void main(String[] args) 
