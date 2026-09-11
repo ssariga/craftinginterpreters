@@ -36,7 +36,6 @@ class AstPrinter implements Expr.Visitor<String>
 
 
  //added for challenge question 2, chapter 6
- //handles the logic for a conditional expression.
   @Override
 public String visitConditionalExpr(Expr.Conditional expr) 
 {
