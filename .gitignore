@@ -19,3 +19,8 @@ xcuserdata/
 trees-build/
 generator-build/
 *.class
+
+# Java build output
+mylox/out/
+mylox/generator-build/
+*.class

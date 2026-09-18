@@ -27,6 +27,20 @@ class AstPrinter implements Expr.Visitor<String>
     return expr.value.toString();
   }
 
+  //required to deal with Java encforcing  the Visitor interface.
+@Override
+public String visitVariableExpr(Expr.Variable expr) 
+{
+  return expr.name.lexeme;
+}
+
+
+@Override
+public String visitAssignExpr(Expr.Assign expr) 
+{
+  return expr.name.lexeme + " " + expr.value.accept(this) + " =";
+}
+
   @Override
   public String visitUnaryExpr(Expr.Unary expr) 
   {

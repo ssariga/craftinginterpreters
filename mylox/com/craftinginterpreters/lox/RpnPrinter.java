@@ -45,6 +45,19 @@ class RpnPrinter implements Expr.Visitor<String>
         //So RPN can output it.
          return expr.value.toString();
     }
+
+    //required due to Java enforcing Visitor syntax.
+    public String visitVariableExpr(Expr.Variable expr) 
+    {
+      return expr.name.lexeme;
+    }
+
+
+    @Override
+    public String visitAssignExpr(Expr.Assign expr) 
+    {
+      return expr.name.lexeme + " " + expr.value.accept(this) + " =";
+    }
     
     //handles expressions like -123 or !true.
     public String visitUnaryExpr(Expr.Unary expr)

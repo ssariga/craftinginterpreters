@@ -38,8 +38,11 @@ public class Lox
 private static void runFile(String path) throws IOException 
 {
     byte[] bytes = Files.readAllBytes(Paths.get(path));
-    run(new String(bytes, Charset.defaultCharset()));
+    //run(new String(bytes, Charset.defaultCharset()));
 
+    //Challenge question 1 chapter 8, this one accepts a flag distinguish
+    //a file from a REPL input.
+    run(new String(bytes, Charset.defaultCharset()), false);
 
     //indicate an error in the exit code
     if(hadError)
@@ -64,24 +67,58 @@ private static void runFile(String path) throws IOException
       System.out.print("> ");
       String line = reader.readLine();
       if (line == null) break;
-      run(line);
+      //run(line);
+      
+      //challenge question 1 Chapter 8
+      run(line, true);
+      hadRuntimeError = false; //reset so that one bad REPL does not make later inputs look like they failed.
       hadError = false;
     }
   }
 
 
-     private static void run(String source) 
+  /*Modified for challenge Question 1 Chapter 8, can now run REPL inputs. */
+  private static void run(String source, boolean isRepl) 
   {
      
     Scanner scanner = new Scanner(source);
     List<Token> tokens = scanner.scanTokens();
     Parser parser = new Parser(tokens);
-    Expr expression = parser.parse();
+
+    //if REPL input is detected
+ if (isRepl) 
+  {
+    //asign a parser object to input
+    Object input = parser.parseRepl();
+
+    //if there is an error or input is null,
+    //return to main.
+    if (hadError || input == null)
+      {
+        return;
+      } 
+
+      //if input is an instace of Expression (a REPL)
+      //interpet the REPL
+      //otherwise interpret as usual.
+    if (input instanceof Expr) 
+    {
+      interpreter.interpretRepl((Expr) input);
+    } 
+    else 
+    {
+      interpreter.interpret((Stmt) input);
+    }
+
+    return;
+  }
+
+    List<Stmt> statements = parser.parse();
 
     // Stop if there was a syntax error.
     if (hadError) return;
 
-    interpreter.interpret(expression);
+    interpreter.interpret(statements);
   }
 
   

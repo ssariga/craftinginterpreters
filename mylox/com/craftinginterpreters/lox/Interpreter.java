@@ -1,9 +1,17 @@
 package com.craftinginterpreters.lox;
 
+import java.util.List;
+
 import com.craftinginterpreters.lox.Lox;
 
-class Interpreter implements Expr.Visitor<Object> 
+class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void>  
 {
+
+   private Environment environment = new Environment();
+
+   //challenge Queston 2, Chapter 8
+   //creation of new unitialized object
+   private static Object uninitialized = new Object();
 
   //converts a tree node to a runtime value
   @Override 
@@ -20,11 +28,84 @@ class Interpreter implements Expr.Visitor<Object>
     return evaluate(expr.expression);
   }
 
-  //helps handle left hand sides of assingment expressions.
+  //allows the interpreter to visit expression statements
+   @Override 
+  public Void visitExpressionStmt(Stmt.Expression stmt) 
+  {
+    evaluate(stmt.expression);
+    return null;
+  }
+
+
+  //allows the interpreter to visit print statements
+  @Override
+  public Void visitPrintStmt(Stmt.Print stmt) 
+  {
+    Object value = evaluate(stmt.expression);
+    System.out.println(stringify(value));
+    return null;
+  }
+
+  @Override
+  public Void visitVarStmt(Stmt.Var stmt) 
+  {
+    //Object value = null;
+    //modificaiton for Challenge Question 2, Chapter 8
+    //We no longer initialize to null.
+
+    Object value = uninitialized;
+
+    if (stmt.initializer != null) 
+    {
+      value = evaluate(stmt.initializer);
+    }
+
+    environment.define(stmt.name.lexeme, value);
+    return null;
+  }
+
+   @Override
+  public Object visitAssignExpr(Expr.Assign expr) 
+  {
+    Object value = evaluate(expr.value);
+    environment.assign(expr.name, value);
+    return value;
+  }
+
+  //helps handle left hand sides of assignment expressions.
    private Object evaluate(Expr expr) 
   {
     return expr.accept(this);
   }
+
+
+  private void execute(Stmt stmt) 
+  {
+    stmt.accept(this);
+  }
+
+    void executeBlock(List<Stmt> statements,
+                    Environment environment) {
+    Environment previous = this.environment;
+    try {
+      this.environment = environment;
+
+      for (Stmt statement : statements) {
+        execute(statement);
+      }
+    } finally {
+      this.environment = previous;
+    }
+  }
+
+  @Override
+  public Void visitBlockStmt(Stmt.Block stmt) 
+  {
+    executeBlock(stmt.statements, new Environment(environment));
+    return null;
+  }
+
+
 
   //evaluates the binary expressions
   // +, -, /, !=, ==, <=. >=. <, >, and *
@@ -99,6 +180,23 @@ class Interpreter implements Expr.Visitor<Object>
     return null;
   }
 
+  //forwards to the environment which does the heavy lifting to make sure the variable is defined
+   @Override
+   /*Modification for Challenge Question 2, chapter 8 
+    the method now does a check to see if the variable has been initialized. If it has, return a value
+    otherwise throw an error message.*/
+  public Object visitVariableExpr(Expr.Variable expr) 
+  {
+    // return environment.get(expr.name);
+    Object value = environment.get(expr.name);
+
+    if (value == uninitialized)
+    {
+      throw new RuntimeError(expr.name, "Variable must be intialized before it can be used. ");
+    }
+    return value;
+  }
+
   //handles conditional expressions like ?:
   @Override
 public Object visitConditionalExpr(Expr.Conditional expr) 
@@ -131,7 +229,7 @@ public Object visitConditionalExpr(Expr.Conditional expr)
    }
 
 
-   //conveerts a lox value to a string
+   //converts a lox value to a string
     private String stringify(Object object) 
     {
         if (object == null) return "nil";
@@ -163,20 +261,51 @@ public Object visitConditionalExpr(Expr.Conditional expr)
     }
 
 
-     void interpret(Expr expression) 
-    { 
+    //accepts a list of statements (a program)    
+    void interpret(List<Stmt> statements) 
+    {
     try 
     {
-      Object value = evaluate(expression);
-      System.out.println(stringify(value));
-    } 
-    catch (RuntimeError error) 
+      for (Stmt statement : statements) 
+        {
+        execute(statement);
+      }
+    } catch (RuntimeError error) 
     {
       Lox.runtimeError(error);
-    } 
+    }
   }
 
 
+  /*Challenge Question 1, chapter 8 */
 
+  //interpret method serves as a helper for REPL
+    void interpret(Stmt statement)
+  {
+    try
+    {
+      execute(statement);
+    }
+    catch (RuntimeError error)
+    {
+      Lox.runtimeError(error);
+    }
+  }
+
+  //helper method
+  //interprets the REPL expression
+  void interpretRepl(Expr expression)
+  {
+    try{
+      Object value = evaluate(expression);
+      System.out.println(stringify(value));
+
+    }
+    catch (RuntimeError error)
+    {
+      Lox.runtimeError(error);
+    }
+  }
+  
 
 }
