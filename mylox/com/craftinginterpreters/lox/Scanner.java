@@ -21,6 +21,7 @@ class Scanner
   {
     keywords = new HashMap<>();
     keywords.put("and",    AND);
+    keywords.put("break", BREAK); //added Break support for Challenge Question 3, Chapter 9
     keywords.put("class",  CLASS);
     keywords.put("else",   ELSE);
     keywords.put("false",  FALSE);

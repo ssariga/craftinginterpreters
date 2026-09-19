@@ -3,6 +3,7 @@ package com.craftinginterpreters.lox;
 import java.util.List;
 
 import com.craftinginterpreters.lox.Lox;
+import com.craftinginterpreters.lox.Stmt.Break;
 
 class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void>  
 {
@@ -20,6 +21,23 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void>
     return expr.value;
   }
 
+   @Override
+  public Object visitLogicalExpr(Expr.Logical expr) 
+  {
+    Object left = evaluate(expr.left);
+
+    if (expr.operator.type == TokenType.OR) 
+    {
+      if (isTruthy(left)) return left;
+    } 
+    else
+    {
+      if (!isTruthy(left)) return left;
+    }
+
+    return evaluate(expr.right);
+  }
+
 
   //evalutes grouping aka ( )
    @Override
@@ -33,6 +51,23 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void>
   public Void visitExpressionStmt(Stmt.Expression stmt) 
   {
     evaluate(stmt.expression);
+    return null;
+  }
+
+
+  //If truthy, it executes the then branch. 
+  //Otherwise, if there is an else branch, it executes that.
+   @Override
+  public Void visitIfStmt(Stmt.If stmt) 
+  {
+    if (isTruthy(evaluate(stmt.condition))) 
+    {
+      execute(stmt.thenBranch);
+    } 
+    else if (stmt.elseBranch != null) 
+    {
+      execute(stmt.elseBranch);
+    }
     return null;
   }
 
@@ -61,6 +96,27 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void>
     }
 
     environment.define(stmt.name.lexeme, value);
+    return null;
+  }
+
+  //execute the while sytanx
+   @Override
+  public Void visitWhileStmt(Stmt.While stmt) 
+  {
+    while (isTruthy(evaluate(stmt.condition))) 
+    {
+      //execute(stmt.body);execute(stmt.body);
+
+      try
+      {
+        execute(stmt.body);
+      }
+        catch (BreakSignal signal)
+      {
+        break;
+      } 
+    }
+   
     return null;
   }
 
@@ -104,6 +160,13 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void>
     executeBlock(stmt.statements, new Environment(environment));
     return null;
   }
+
+  //calls the Break method, Challenge Question 3, Chapter 9.
+@Override
+public Void visitBreakStmt(Stmt.Break stmt) 
+{
+  throw new BreakSignal();
+}
 
 
 

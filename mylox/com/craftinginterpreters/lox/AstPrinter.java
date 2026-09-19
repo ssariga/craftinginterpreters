@@ -41,6 +41,13 @@ public String visitAssignExpr(Expr.Assign expr)
   return expr.name.lexeme + " " + expr.value.accept(this) + " =";
 }
 
+
+  @Override
+  public String visitLogicalExpr(Expr.Logical expr) 
+  { 
+    return expr.left.accept(this) + " " + expr.right.accept(this) + " " + expr.operator.lexeme;
+  }
+
   @Override
   public String visitUnaryExpr(Expr.Unary expr) 
   {

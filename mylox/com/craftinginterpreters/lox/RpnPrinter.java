@@ -59,6 +59,11 @@ class RpnPrinter implements Expr.Visitor<String>
       return expr.name.lexeme + " " + expr.value.accept(this) + " =";
     }
     
+    @Override
+    public String visitLogicalExpr(Expr.Logical expr) 
+    { 
+      return expr.left.accept(this) + " " + expr.right.accept(this) + " " + expr.operator.lexeme;
+    }
     //handles expressions like -123 or !true.
     public String visitUnaryExpr(Expr.Unary expr)
     {

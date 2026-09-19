@@ -20,14 +20,19 @@ public class GenerateAst {
       "Conditional : Expr condition, Expr thenBranch, Expr elseBranch",
       "Grouping : Expr expression",
       "Literal  : Object value",
+      "Logical  : Expr left, Token operator, Expr right",
       "Unary    : Token operator, Expr right", "Variable : Token name" ));
 
       //defines Stmt and its subclasses.
     defineAst(outputDir, "Stmt", Arrays.asList( 
       "Block      : List<Stmt> statements",
+      "Break      : Token keyword", //added Break support for challenge Question 3 Chapter 9
       "Expression : Expr expression",
+      "If         : Expr condition, Stmt thenBranch," +
+                  " Stmt elseBranch ",
       "Print      : Expr expression",
-      "Var        : Token name, Expr initializer"
+      "Var        : Token name, Expr initializer",
+      "While      : Expr condition, Stmt body"
       ));
   }
 
