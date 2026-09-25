@@ -16,8 +16,11 @@ public class GenerateAst {
   //added Conditional Grouping for ?: management.
     defineAst(outputDir, "Expr", Arrays.asList(
       "Assign   : Token name, Expr value",
-      "Binary   : Expr left, Token operator, Expr right", 
+      "Binary   : Expr left, Token operator, Expr right",
+      "Call     : Expr callee, Token paren, List<Expr> arguments", 
       "Conditional : Expr condition, Expr thenBranch, Expr elseBranch",
+      "Function   : List<Token> params," +
+                  " List<Stmt> body", //added anonymous function support Challenge Question 2, chapter 10.
       "Grouping : Expr expression",
       "Literal  : Object value",
       "Logical  : Expr left, Token operator, Expr right",
@@ -28,9 +31,12 @@ public class GenerateAst {
       "Block      : List<Stmt> statements",
       "Break      : Token keyword", //added Break support for challenge Question 3 Chapter 9
       "Expression : Expr expression",
+      "Function   : Token name, List<Token> params," +
+                  " List<Stmt> body", //added anonymous function support Challenge Question 2, chapter 10.
       "If         : Expr condition, Stmt thenBranch," +
                   " Stmt elseBranch ",
       "Print      : Expr expression",
+      "Return     : Token keyword, Expr value",
       "Var        : Token name, Expr initializer",
       "While      : Expr condition, Stmt body"
       ));

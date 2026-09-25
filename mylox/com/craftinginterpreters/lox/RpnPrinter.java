@@ -123,6 +123,29 @@ class RpnPrinter implements Expr.Visitor<String>
   System.out.println(new RpnPrinter().print(expression));
 }
 
+@Override
+public String visitCallExpr(Expr.Call expr) 
+{
+  StringBuilder builder = new StringBuilder();
 
+  builder.append(print(expr.callee));
+  builder.append("(");
+
+  for (int i = 0; i < expr.arguments.size(); i++) {
+    if (i > 0) builder.append(", ");
+    builder.append(print(expr.arguments.get(i)));
+  }
+
+  builder.append(")");
+  return builder.toString();
+}
+
+
+//added anonymous function support, chapter 10 challenge question 3.
+@Override
+public String visitFunctionExpr(Expr.Function expr) 
+{
+  return "<fn>";
+}
    
 }
