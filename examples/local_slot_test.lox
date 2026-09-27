@@ -1,0 +1,17 @@
+//This program tests that localized index assignment for local variables is working properly.
+//Global variable --> Environment.values map --> lookup by name
+// Local variable  --> Environment.locals list --> lookup by slot index
+//Challenge Question 4, Chapter 11.
+
+var global = "global";
+
+{
+  var local = "local";
+  print local;
+
+  var count = 1;
+  count = count + 1;
+  print count;
+}
+
+print global;

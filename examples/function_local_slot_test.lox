@@ -1,0 +1,13 @@
+//test locals after parameters
+//Challenge Question 4, Chapter 11.
+fun calculate(base) 
+{
+  var doubled = base * 2;
+  var result = doubled + 1;
+
+  print base;
+  print doubled;
+  return result;
+}
+
+print calculate(20);

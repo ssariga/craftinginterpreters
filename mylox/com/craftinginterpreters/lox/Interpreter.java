@@ -13,8 +13,13 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void>
 
   final Environment globals = new Environment();
   private Environment environment = globals;
-  private final Map<Expr, Integer> locals = new HashMap<>();
 
+  //changed for Challenge question 4, chapter 11.
+  private final Map<Expr, ResolvedLocal> locals = new HashMap<>();
+  private final Map<Stmt.Var, Integer> localDeclarationSlots = new HashMap<>();
+  private final Map<Stmt.Function, Integer> localFunctionSlots = new HashMap<>(); //allows for multiple local functions in the same file
+
+  private final Map<Token, Integer> parameterSlots = new HashMap<>();
 
    Interpreter() 
    {
@@ -82,7 +87,17 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void>
   public Void visitFunctionStmt(Stmt.Function stmt) 
   {
     LoxFunction function = new LoxFunction(stmt, environment);
-    environment.define(stmt.name.lexeme, function);
+     Integer slot = localFunctionSlots.get(stmt);
+    if(slot != null)
+    {
+      environment.defineAt(slot, function);
+      
+    }
+    else
+    {
+      environment.define(stmt.name.lexeme, function); 
+    }
+    
     return null;
   }
 
@@ -136,7 +151,24 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void>
       value = evaluate(stmt.initializer);
     }
 
-    environment.define(stmt.name.lexeme, value);
+     Integer index = localDeclarationSlots.get(stmt);
+
+     /*
+      Resolver records a numeric slot. The interpreter uses:
+      environment.defineAt(index, value);
+      which writes to the locals ArrayList in Environment.
+
+      Challenge Question 4 Chapter 11.
+     */
+    if (index != null) 
+    {
+      environment.defineAt(index, value);
+    } 
+    else 
+    {
+      environment.define(stmt.name.lexeme, value);
+    }
+    
     return null;
   }
 
@@ -161,14 +193,18 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void>
     return null;
   }
 
+  //global environment can remain map-based. 
+  //Only resolver-known local variables need indexed lookup.
+  //Challenge Question 4, Chapter 11.
    @Override
   public Object visitAssignExpr(Expr.Assign expr) 
   {
     Object value = evaluate(expr.value);
-    Integer distance = locals.get(expr);
-    if (distance != null) 
+
+    ResolvedLocal local = locals.get(expr);
+    if (local != null) 
     {
-      environment.assignAt(distance, expr.name, value);
+      environment.assignAt(local.distance, local.index, value);
     } 
     else 
     {
@@ -203,9 +239,34 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void>
     }
   }
 
-  void resolve(Expr expr, int depth) 
+  //modifications made to allow for local variables
+  //in an array and look them up by index.
+  //challenge question 4 Chapter 11.
+  void resolve(Expr expr, int distance, int index) 
   {
-    locals.put(expr, depth);
+    locals.put(expr, new ResolvedLocal(distance, index));
+  }
+
+  void resolve(Stmt.Var stmt, int index) 
+  {
+    localDeclarationSlots.put(stmt, index);
+  }
+
+  void resolve(Stmt.Function stmt, int index) 
+{
+  localFunctionSlots.put(stmt, index);
+}
+
+  //saves parameter slot information
+  //Challenge Question 4, Chapter 11.
+  void resolve(Token parameter, int index) 
+  {
+    parameterSlots.put(parameter, index);
+  }
+
+  int getParameterSlot(Token parameter) 
+  {
+    return parameterSlots.get(parameter);
   }
 
   @Override
@@ -350,10 +411,14 @@ public Object visitFunctionExpr(Expr.Function expr)
 
   private Object lookUpVariable(Token name, Expr expr) 
   {
-    Integer distance = locals.get(expr);
-    if (distance != null) {
-      return environment.getAt(distance, name.lexeme);
-    } else {
+     ResolvedLocal local = locals.get(expr);
+
+    if (local != null) 
+    {
+      return environment.getAt(local.distance, local.index);
+    } 
+    else 
+    {
       return globals.get(name);
     }
   }

@@ -118,6 +118,13 @@ private static void runFile(String path) throws IOException
     // Stop if there was a syntax error.
     if (hadError) return;
 
+    //run the resolver.
+    Resolver resolver = new Resolver(interpreter);
+    resolver.resolve(statements);
+
+     if (hadError) 
+      return;
+    
     interpreter.interpret(statements);
   }
 

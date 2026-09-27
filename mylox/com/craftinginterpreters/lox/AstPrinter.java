@@ -67,7 +67,6 @@ public String visitConditionalExpr(Expr.Conditional expr)
 }
 
 
-
     //handles exrpessions with subexrpessions.
    private String parenthesize(String name, Expr... exprs) 
    {
@@ -98,4 +97,31 @@ public String visitConditionalExpr(Expr.Conditional expr)
 
     System.out.println(new AstPrinter().print(expression));
   }
+
+
+
+@Override
+public String visitCallExpr(Expr.Call expr) 
+{
+  StringBuilder builder = new StringBuilder();
+
+  builder.append(print(expr.callee));
+  builder.append("(");
+
+  for (int i = 0; i < expr.arguments.size(); i++) {
+    if (i > 0) builder.append(", ");
+    builder.append(print(expr.arguments.get(i)));
+  }
+
+  builder.append(")");
+  return builder.toString();
+}
+
+
+@Override
+public String visitFunctionExpr(Expr.Function expr) 
+{
+  return "<fn>";
+}
+
 }

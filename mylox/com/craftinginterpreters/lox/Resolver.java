@@ -13,6 +13,8 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void>
   private final Interpreter interpreter;
   private final Stack<Map<String, LocalVariable>> scopes = new Stack<>();
   private FunctionType currentFunction = FunctionType.NONE;
+  private final Stack<Integer> nextLocalIndex = new Stack<>();
+ 
 
   Resolver(Interpreter interpreter) 
   {
@@ -38,12 +40,14 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void>
 {
   final Token name;
   VariableState state;
+   final int index;
    //added support for the resolver to report an error if a local 
   //variable is never used, Challenge question 3, chapter 11.
-  LocalVariable(Token name, VariableState state) 
+  LocalVariable(Token name, int index, VariableState state) 
   {
     this.name = name;
     this.state = state;
+    this.index = index;
   }
     
 }
@@ -75,7 +79,13 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void>
   public Void visitFunctionStmt(Stmt.Function stmt) 
   {
     declare(stmt.name);
-    define(stmt.name);
+    if (!scopes.isEmpty()) 
+    {
+      LocalVariable local = scopes.peek().get(stmt.name.lexeme);
+      interpreter.resolve(stmt, local.index);
+    }
+
+  define(stmt.name);
 
     resolveFunction(stmt, FunctionType.FUNCTION);
     
@@ -126,10 +136,33 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void>
   {
     
     declare(stmt.name);
+
+
+    /*At global scope, scopes is empty.
+    Therefore globals continue using the normal name-based Map<String, Object> environment.
+    Inside a block or function, the resolver already assigned an index in declare().
+    This stores the relationship:
+    
+    this exact Stmt.Var node → slot index
+    in Interpreter.localDeclarationSlots.
+    
+    The resolver’s scope stack represents nested lexical scopes; 
+    entering a block/function pushes one, and leaving it pops it.
+
+    Challenge Question 4, Chapter 11.
+
+ */
+    if (!scopes.isEmpty()) 
+    {
+      LocalVariable local = scopes.peek().get(stmt.name.lexeme);
+      interpreter.resolve(stmt, local.index);
+    }
+
     if (stmt.initializer != null) 
     {
-      resolve(stmt.initializer);
+    resolve(stmt.initializer);
     }
+
     define(stmt.name);
     return null;
   }
@@ -251,6 +284,22 @@ public Void visitFunctionExpr(Expr.Function expr)
 }
 
 
+/*
+Modifications for challenge question 4, Chapter 11. 
+Begin function scope.
+
+Declare left:
+  left receives local slot 0.
+  Save the relationship: left token --> 0.
+
+Declare right:
+  right receives local slot 1.
+  Save the relationship: right token -->1.
+
+Resolve function body.
+End function scope.
+*/
+
 private void resolveFunction(Expr.Function function, FunctionType type) 
 {
   FunctionType enclosingFunction = currentFunction;
@@ -261,6 +310,8 @@ private void resolveFunction(Expr.Function function, FunctionType type)
   for (Token param : function.params) 
   {
     declare(param);
+    LocalVariable local = scopes.peek().get(param.lexeme);
+    interpreter.resolve(param, local.index);
     define(param);
   }
 
@@ -273,17 +324,24 @@ private void resolveFunction(Expr.Function function, FunctionType type)
 
   //resolves the varaible itself.
   private void resolveLocal(Expr expr, Token name) 
+{
+  for (int i = scopes.size() - 1; i >= 0; i--) 
   {
-    for (int i = scopes.size() - 1; i >= 0; i--) 
+    Map<String, LocalVariable> scope = scopes.get(i);
+
+    LocalVariable variable = scope.get(name.lexeme);
+
+    if (variable != null) 
     {
-        Map<String,LocalVariable> scope = scopes.get(i);
-      if (scope.containsKey(name.lexeme)) 
-        {
-        interpreter.resolve(expr, scopes.size() - 1 - i);
-        return;
-        }
+      variable.state = VariableState.READ;
+
+      int distance = scopes.size() - 1 - i;
+
+      interpreter.resolve(expr, distance, variable.index);
+      return;
     }
   }
+}
 
     //walks a list of statments, resolves each one.
    void resolve(List<Stmt> statements) 
@@ -293,16 +351,36 @@ private void resolveFunction(Expr.Function function, FunctionType type)
     }
   }
 
+
+  /*
+Modifications for challenge question 4, Chapter 11. 
+Begin function scope.
+
+Declare left:
+  left receives local slot 0.
+  Save the relationship: left token --> 0.
+
+Declare right:
+  right receives local slot 1.
+  Save the relationship: right token -->1.
+
+Resolve function body.
+End function scope.
+*/
    private void resolveFunction(Stmt.Function function, FunctionType type) 
    {
 
     FunctionType enclosingFunction = currentFunction;
     currentFunction = type;
     beginScope();
-    for (Token param : function.params) {
+    for (Token param : function.params) 
+    {
       declare(param);
+      LocalVariable local = scopes.peek().get(param.lexeme);
+      interpreter.resolve(param, local.index);
       define(param);
     }
+
     resolve(function.body);
     endScope();
     currentFunction = enclosingFunction;
@@ -312,18 +390,21 @@ private void resolveFunction(Expr.Function function, FunctionType type)
    private void beginScope() 
    {
     scopes.push(new HashMap<String, LocalVariable>());
+     nextLocalIndex.push(0);
    }
 
    //exits the scope, as scopes are stored in explicit stacks, it is easy to exit.
    private void endScope() 
  {
     Map<String, LocalVariable> scope =scopes.pop();
+    nextLocalIndex.pop();
 
     Iterator<LocalVariable> iterator = scope.values().iterator();
 
     while (iterator.hasNext()) 
     {
          LocalVariable variable = iterator.next();
+
         if (variable.state == VariableState.DEFINED) 
         {
             Lox.error(variable.name, "Local variable '" +  variable.name.lexeme + "' is never used.");
@@ -347,7 +428,10 @@ private void resolveFunction(Expr.Function function, FunctionType type)
       Lox.error(name,
           "Already a variable with this name in this scope.");
     }
-    scope.put(name.lexeme, new LocalVariable(name, VariableState.DECLARED));
+     int index = nextLocalIndex.pop();
+     nextLocalIndex.push(index + 1);
+
+  scope.put(name.lexeme, new LocalVariable(name, index, VariableState.DECLARED));
   }
 
   //primes the variable
@@ -377,4 +461,6 @@ private void resolveFunction(Expr.Function function, FunctionType type)
    {
     expr.accept(this);
   }
+
+
 }

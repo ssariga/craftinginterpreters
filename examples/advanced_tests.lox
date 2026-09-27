@@ -1,0 +1,61 @@
+//nested shadowing
+{
+  var value = "outer";
+
+  {
+    var value = "inner";
+    print value;
+  }
+
+  print value;
+}
+
+
+//Closure captures local slot
+fun makeCounter() 
+{
+  var count = 0;
+
+  fun increment() 
+  {
+    count = count + 1;
+    return count;
+  }
+
+  return increment;
+}
+
+var counter = makeCounter();
+print counter();
+print counter();
+print counter();
+
+
+//Closure + local shadowing
+
+var message = "Amazing";
+
+fun outer() 
+{
+  var message = "Message";
+
+  fun inner() {
+    print message;
+  }
+
+  return inner;
+}
+
+var saved = outer();
+saved();
+print message;
+
+
+//Recursion
+fun countdown(number) {
+  if (number <= 0) return;
+  print number;
+  countdown(number - 1);
+}
+
+countdown(7);

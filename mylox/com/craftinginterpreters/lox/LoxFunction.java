@@ -47,7 +47,9 @@ class LoxFunction implements LoxCallable
     // Assigns each supplied argument value to its matching parameter name.
     for (int i = 0; i < params.size(); i++) 
     {
-      environment.define(params.get(i).lexeme, arguments.get(i));
+      Token parameter = params.get(i);
+      int slot = interpreter.getParameterSlot(parameter);
+      environment.defineAt(slot, arguments.get(i));
     }
 
     // Runs the statements in the function body using the newly created

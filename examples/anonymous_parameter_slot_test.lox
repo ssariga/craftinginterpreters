@@ -1,0 +1,7 @@
+var add = fun(left, right) 
+{
+  var total = left + right;
+  return total;
+};
+
+print add(19, 23);

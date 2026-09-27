@@ -1,0 +1,16 @@
+/*
+Function calls create a fresh environment for each invocation, 
+then bind the evaluated arguments 
+to the corresponding function parameters 
+before executing the function body.
+
+Challenge Question 4, Chapter 11.
+*/
+fun add(left, right) 
+{
+  print left;
+  print right;
+  return left + right;
+}
+
+print add(20, 22);
