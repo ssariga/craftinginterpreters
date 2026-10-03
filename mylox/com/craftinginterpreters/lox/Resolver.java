@@ -6,8 +6,6 @@ import java.util.Map;
 import java.util.Stack;
 import java.util.Iterator;
 
-
-
 class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> 
 {
   private final Interpreter interpreter;
@@ -24,8 +22,19 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void>
    private enum FunctionType 
    {
     NONE,
-    FUNCTION
+    FUNCTION,
+    INITIALIZER,
+    METHOD
   }
+
+   private enum ClassType 
+  {
+    NONE,
+    CLASS,
+    SUBCLASS,
+  }
+
+  private ClassType currentClass = ClassType.NONE;
 
   //added support for the resolver to report an error if a local 
   //variable is never used, Challenge question 3, chapter 11.
@@ -63,6 +72,72 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void>
     beginScope();
     resolve(stmt.statements);
     endScope();
+    return null;
+  }
+
+   @Override
+  public Void visitClassStmt(Stmt.Class stmt) 
+  {
+
+    ClassType enclosingClass = currentClass;
+    currentClass = ClassType.CLASS;
+    declare(stmt.name);
+    define(stmt.name);
+
+
+    if (stmt.superclass != null && stmt.name.lexeme.equals(stmt.superclass.name.lexeme)) 
+    {
+      Lox.error(stmt.superclass.name,
+          "A class can't inherit from itself.");
+    }
+
+    if (stmt.superclass != null) 
+    {
+      currentClass = ClassType.SUBCLASS;
+      resolve(stmt.superclass);
+    }
+
+      if (stmt.superclass != null) 
+    {
+      beginScope();
+
+      Token superToken = new Token(TokenType.SUPER, "super", null, stmt.name.line);
+
+      declare(superToken);
+      define(superToken);
+    
+    }
+
+    beginScope();
+
+    Token thisToken = new Token(TokenType.THIS,"this",null,stmt.name.line);
+
+    declare(thisToken);
+    define(thisToken);
+    
+     for (Stmt.Function method : stmt.methods) 
+    {
+      FunctionType declaration = FunctionType.METHOD;
+       if (method.name.lexeme.equals("init")) 
+      {
+        declaration = FunctionType.INITIALIZER;
+      }
+      resolveFunction(method, declaration); 
+    }
+
+    //added support for static methods, challenge question 1, chapter 12.
+  for (Stmt.Function method : stmt.classMethods) 
+  {
+  resolveFunction(method, FunctionType.FUNCTION);
+  }
+
+    if (stmt.superclass != null)
+      {
+          endScope();
+      } 
+      
+    endScope();
+    currentClass = enclosingClass;
     return null;
   }
 
@@ -124,6 +199,13 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void>
     }
     if (stmt.value != null) 
     {
+
+
+       if (currentFunction == FunctionType.INITIALIZER) 
+      {
+        Lox.error(stmt.keyword,
+            "Can't return a value from an initializer.");
+      }
     resolve(stmt.value);
     }
 
@@ -235,6 +317,13 @@ public Void visitConditionalExpr(Expr.Conditional expr)
     return null;
   }  
 
+   @Override
+  public Void visitGetExpr(Expr.Get expr) 
+  {
+    resolve(expr.object);
+    return null;
+  }
+
     @Override
   public Void visitGroupingExpr(Expr.Grouping expr) 
   {
@@ -253,6 +342,44 @@ public Void visitConditionalExpr(Expr.Conditional expr)
   {
     resolve(expr.left);
     resolve(expr.right);
+    return null;
+  }
+
+   @Override
+  public Void visitSetExpr(Expr.Set expr) 
+  {
+    resolve(expr.value);
+    resolve(expr.object);
+    return null;
+  }
+
+    @Override
+  public Void visitSuperExpr(Expr.Super expr) 
+  {
+    if (currentClass == ClassType.NONE) 
+    {
+      Lox.error(expr.keyword,
+          "Can't use 'super' outside of a class.");
+    } 
+    else if (currentClass != ClassType.SUBCLASS) 
+    {
+      Lox.error(expr.keyword,
+          "Can't use 'super' in a class with no superclass.");
+    }
+    resolveLocal(expr, expr.keyword);
+    return null;
+  }
+
+  @Override
+  public Void visitThisExpr(Expr.This expr) 
+  {
+
+     if (currentClass == ClassType.NONE) 
+      {
+      Lox.error(expr.keyword,"Can't use 'this' outside of a class.");
+      return null;
+    }
+    resolveLocal(expr, expr.keyword);
     return null;
   }
 
@@ -405,10 +532,12 @@ End function scope.
     {
          LocalVariable variable = iterator.next();
 
-        if (variable.state == VariableState.DEFINED) 
-        {
+        if(variable.state == VariableState.DEFINED && !variable.name.lexeme.equals("this"))
+          {
             Lox.error(variable.name, "Local variable '" +  variable.name.lexeme + "' is never used.");
-        }
+          } 
+        
+            
     }
 }
 

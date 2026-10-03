@@ -147,5 +147,31 @@ public String visitFunctionExpr(Expr.Function expr)
 {
   return "<fn>";
 }
+
+
+@Override
+public String visitGetExpr(Expr.Get expr) 
+{
+  return print(expr.object) + "." + expr.name.lexeme;
+}
+
+@Override
+public String visitSetExpr(Expr.Set expr) 
+{
+  return print(expr.object) + "." + expr.name.lexeme +
+      " = " + print(expr.value);
+}
+
+@Override
+public String visitThisExpr(Expr.This expr) 
+{
+  return "this";
+}
+
+@Override
+public String visitSuperExpr(Expr.Super expr) 
+{
+  return "super." + expr.method.lexeme;
+}
    
 }

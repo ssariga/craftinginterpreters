@@ -1,0 +1,8 @@
+class Person {
+  identify() {
+    print this;
+  }
+}
+
+var person = Person();
+person.identify();

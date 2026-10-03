@@ -19,20 +19,23 @@ public class GenerateAst {
       "Binary   : Expr left, Token operator, Expr right",
       "Call     : Expr callee, Token paren, List<Expr> arguments", 
       "Conditional : Expr condition, Expr thenBranch, Expr elseBranch",
-      "Function   : List<Token> params," +
-                  " List<Stmt> body", //added anonymous function support Challenge Question 2, chapter 10.
+      "Function   : List<Token> params, List<Stmt> body", //added anonymous function support Challenge Question 2, chapter 10.
+      "Get      : Expr object, Token name",
       "Grouping : Expr expression",
       "Literal  : Object value",
       "Logical  : Expr left, Token operator, Expr right",
+      "Set      : Expr object, Token name, Expr value",
+      "Super    : Token keyword, Token method",
+      "This     : Token keyword",
       "Unary    : Token operator, Expr right", "Variable : Token name" ));
 
       //defines Stmt and its subclasses.
     defineAst(outputDir, "Stmt", Arrays.asList( 
       "Block      : List<Stmt> statements",
       "Break      : Token keyword", //added Break support for challenge Question 3 Chapter 9
+      "Class     : Token name, Expr.Variable superclass, List<Stmt.Function> methods, List<Stmt.Function> classMethods", //added anonymous function support Challenge Question 2, chapter 10.
       "Expression : Expr expression",
-      "Function   : Token name, List<Token> params," +
-                  " List<Stmt> body", //added anonymous function support Challenge Question 2, chapter 10.
+      "Function  : Token name, List<Token> params, List<Stmt> body, boolean isGetter",
       "If         : Expr condition, Stmt thenBranch," +
                   " Stmt elseBranch ",
       "Print      : Expr expression",

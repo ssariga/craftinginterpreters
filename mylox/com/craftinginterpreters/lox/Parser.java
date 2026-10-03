@@ -44,6 +44,12 @@ class Parser
   {
     try 
     {
+
+      if (match(CLASS)) 
+      {
+          return classDeclaration();
+      }
+
        if (check(FUN) && checkNext(IDENTIFIER)) 
       {
       advance(); // Consume 'fun'.
@@ -58,6 +64,46 @@ class Parser
       synchronize();
       return null;
     }
+  }
+
+  //Parses the Class.
+  private Stmt classDeclaration() 
+  {
+    Token name = consume(IDENTIFIER, "Expect class name.");
+
+
+
+
+    // Optional inheritance clause:
+    // class Child < Parent { ... }
+    Expr.Variable superclass = null;
+    if (match(TokenType.LESS)) 
+    {
+      consume(IDENTIFIER, "Expect superclass name.");
+      superclass = new Expr.Variable(previous());
+    }
+
+    consume(LEFT_BRACE, "Expect '{' before class body.");
+
+    List<Stmt.Function> methods = new ArrayList<>();
+    List<Stmt.Function> classMethods = new ArrayList<>(); //added support for static methods, challenge question 1, chapter 12.
+    
+    while (!check(RIGHT_BRACE) && !isAtEnd()) 
+    {
+      //added support for static methods, challenge question 1, chapter 12.
+      if (match(TokenType.CLASS)) 
+      {
+        classMethods.add(method("class method"));
+      } 
+      else 
+      {
+        methods.add(method("method"));
+      }
+    }
+
+    consume(RIGHT_BRACE, "Expect '}' after class body.");
+
+    return new Stmt.Class(name, superclass, methods, classMethods);
   }
 
   //Challenge question 2 chapter 10
@@ -235,26 +281,81 @@ class Parser
     return new Stmt.Expression(expr);
   }
 
+  //Used for things like fun name(...) { ... }
   private Stmt.Function function(String kind) 
   {
     Token name = consume(IDENTIFIER, "Expect " + kind + " name.");
     consume(LEFT_PAREN, "Expect '(' after " + kind + " name.");
+
     List<Token> parameters = new ArrayList<>();
-    if (!check(RIGHT_PAREN)) {
-      do {
-        if (parameters.size() >= 255) {
+    
+      if (!check(RIGHT_PAREN)) 
+      {
+        do 
+        {
+          if (parameters.size() >= 255) 
+          {
+            error(peek(), "Can't have more than 255 parameters.");
+          }
+
+            parameters.add(consume(IDENTIFIER, "Expect parameter name."));
+        } 
+        while (match(COMMA));
+      }
+    
+       consume(RIGHT_PAREN, "Expect ')' after parameters.");
+       consume(LEFT_BRACE, "Expect '{' before " + kind + " body.");
+       List<Stmt> body = block();
+       return new Stmt.Function(name, parameters, body, false);
+    }
+    
+    
+    
+ 
+    //used for things  Methods inside class { ... }
+    //added getter support, challenge question 2, chapter 12
+  private Stmt.Function method(String kind) 
+{
+  Token name = consume(TokenType.IDENTIFIER,"Expect " + kind + " name.");
+
+  List<Token> parameters = new ArrayList<>();
+  boolean isGetter = false;
+
+  //added getter support, challenge question 2, chapter 12
+  if (match(TokenType.LEFT_PAREN)) 
+  {
+    if (!check(TokenType.RIGHT_PAREN)) 
+    {
+      do 
+      {
+        if (parameters.size() >= 255) 
+        {
           error(peek(), "Can't have more than 255 parameters.");
         }
 
         parameters.add(
-            consume(IDENTIFIER, "Expect parameter name."));
-      } while (match(COMMA));
+            consume(TokenType.IDENTIFIER, "Expect parameter name."));
+      } 
+      while (match(TokenType.COMMA));
     }
-    consume(RIGHT_PAREN, "Expect ')' after parameters.");
-    consume(LEFT_BRACE, "Expect '{' before " + kind + " body.");
-    List<Stmt> body = block();
-    return new Stmt.Function(name, parameters, body);
+
+    consume(
+        TokenType.RIGHT_PAREN,
+        "Expect ')' after parameters.");
+  } 
+  else 
+  {
+    isGetter = true;
   }
+
+  consume(
+      TokenType.LEFT_BRACE,
+      "Expect '{' before " + kind + " body.");
+
+  List<Stmt> body = block();
+
+  return new Stmt.Function(name, parameters, body, isGetter);
+}
 
   private List<Stmt> block() 
   {
@@ -277,10 +378,17 @@ class Parser
       Token equals = previous();
       Expr value = assignment();
 
-      if (expr instanceof Expr.Variable) {
+      if (expr instanceof Expr.Variable) 
+      {
         Token name = ((Expr.Variable)expr).name;
         return new Expr.Assign(name, value);
       }
+      else if (expr instanceof Expr.Get) 
+      {
+        Expr.Get get = (Expr.Get)expr;
+        return new Expr.Set(get.object, get.name, value);
+      }
+      
 
       error(equals, "Invalid assignment target."); 
     }
@@ -458,7 +566,13 @@ private Expr equality()
       if (match(LEFT_PAREN)) 
       {
         expr = finishCall(expr);
-      } 
+      }
+       else if (match(DOT)) 
+      {
+        Token name = consume(IDENTIFIER,
+            "Expect property name after '.'.");
+        expr = new Expr.Get(expr, name);
+      }
       else 
       {
         break;
@@ -557,6 +671,21 @@ private Expr equality()
     }
 
 
+     if (match(SUPER)) 
+    {
+      Token keyword = previous();
+      consume(DOT, "Expect '.' after 'super'.");
+      Token method = consume(IDENTIFIER,
+          "Expect superclass method name.");
+      return new Expr.Super(keyword, method);
+    }
+
+     if (match(THIS)) 
+      {
+        return new Expr.This(previous());
+      }
+
+
     if (match(IDENTIFIER)) 
     {
       return new Expr.Variable(previous());
@@ -574,6 +703,8 @@ private Expr equality()
     //this will handle that error case.
     throw error(peek(), "Expect expression."); 
   }
+
+  
 
     //returns true is a token is of the given type
     //false otherwise
