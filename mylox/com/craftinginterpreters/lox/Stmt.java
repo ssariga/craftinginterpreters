@@ -10,6 +10,7 @@ abstract class Stmt {
     R visitExpressionStmt(Expression stmt);
     R visitFunctionStmt(Function stmt);
     R visitIfStmt(If stmt);
+    R visitMixinStmt(Mixin stmt);
     R visitPrintStmt(Print stmt);
     R visitReturnStmt(Return stmt);
     R visitVarStmt(Var stmt);
@@ -40,9 +41,10 @@ abstract class Stmt {
     final Token keyword;
   }
   static class Class extends Stmt {
-    Class(Token name, Expr.Variable superclass, List<Stmt.Function> methods, List<Stmt.Function> classMethods) {
+    Class(Token name, Expr.Variable superclass, List<Expr.Variable> mixins, List<Stmt.Function> methods, List<Stmt.Function> classMethods) {
       this.name = name;
       this.superclass = superclass;
+      this.mixins = mixins;
       this.methods = methods;
       this.classMethods = classMethods;
     }
@@ -54,6 +56,7 @@ abstract class Stmt {
 
     final Token name;
     final Expr.Variable superclass;
+    final List<Expr.Variable> mixins;
     final List<Stmt.Function> methods;
     final List<Stmt.Function> classMethods;
   }
@@ -102,6 +105,20 @@ abstract class Stmt {
     final Expr condition;
     final Stmt thenBranch;
     final Stmt elseBranch;
+  }
+  static class Mixin extends Stmt {
+    Mixin(Token name, List<Stmt.Function> methods) {
+      this.name = name;
+      this.methods = methods;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitMixinStmt(this);
+    }
+
+    final Token name;
+    final List<Stmt.Function> methods;
   }
   static class Print extends Stmt {
     Print(Expr expression) {

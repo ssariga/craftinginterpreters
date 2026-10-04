@@ -19,8 +19,9 @@ enum TokenType {
 
   // Keywords.
   //Added BREAK for Challenge Question 3, chapter 9
+  //Added MIXIN and WITH for Challenge Question 1, Chapter 13
   AND, BREAK, CLASS, ELSE, FALSE, FUN, FOR, IF, NIL, OR,
-  PRINT, RETURN, SUPER, THIS, TRUE, VAR, WHILE,
+  PRINT, RETURN, SUPER, THIS, TRUE, VAR, WHILE, MIXIN, WITH,
 
   EOF
 }

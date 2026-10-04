@@ -49,7 +49,12 @@ class Parser
       {
           return classDeclaration();
       }
-
+      
+      //added mixin support challenge question 1, chapter 13.
+      if (match(MIXIN))
+      { 
+        return mixinDeclaration();
+      }
        if (check(FUN) && checkNext(IDENTIFIER)) 
       {
       advance(); // Consume 'fun'.
@@ -71,9 +76,6 @@ class Parser
   {
     Token name = consume(IDENTIFIER, "Expect class name.");
 
-
-
-
     // Optional inheritance clause:
     // class Child < Parent { ... }
     Expr.Variable superclass = null;
@@ -82,6 +84,20 @@ class Parser
       consume(IDENTIFIER, "Expect superclass name.");
       superclass = new Expr.Variable(previous());
     }
+
+
+     List<Expr.Variable> mixins = new ArrayList<>();
+
+     //added mixin support, challenge question 1, chapter 13
+  if (match(WITH)) 
+  {
+    do 
+    {
+      consume(IDENTIFIER, "Expect mixin name after 'with'.");
+      mixins.add(new Expr.Variable(previous()));
+    } 
+    while (match(COMMA));
+  }
 
     consume(LEFT_BRACE, "Expect '{' before class body.");
 
@@ -103,7 +119,7 @@ class Parser
 
     consume(RIGHT_BRACE, "Expect '}' after class body.");
 
-    return new Stmt.Class(name, superclass, methods, classMethods);
+    return new Stmt.Class(name, superclass, mixins, methods, classMethods);
   }
 
   //Challenge question 2 chapter 10
@@ -839,6 +855,44 @@ private Expr equality()
   List<Stmt> body = block();
   return new Expr.Function(parameters, body);
 
+}
+
+// Parses a mixin declaration:
+//
+// mixin Name {
+//   methodOne() { ... }
+//   methodTwo() { ... }
+// }
+//added mixin support, challenge question 1, chapter 13
+private Stmt mixinDeclaration() 
+{
+
+  // Require the mixin's name immediately after the "mixin" keyword.
+  Token name = consume(IDENTIFIER, "Expect mixin name.");
+
+   //mixin body must begin with an opening brace.
+  consume(LEFT_BRACE, "Expect '{' before mixin body.");
+
+
+  // Store every method declared inside the mixin.
+  // A mixin is a reusable bundle of instance methods.
+  List<Stmt.Function> methods = new ArrayList<>();
+
+   // Keep reading methods until the mixin body's closing brace is reached.
+  // isAtEnd() prevents the parser from looping forever if a closing brace
+  // is accidentally missing.
+  while (!check(RIGHT_BRACE) && !isAtEnd()) 
+  {
+    methods.add(method("mixin method"));
+  }
+
+  // The closing brace that ends the mixin declaration.
+  consume(RIGHT_BRACE, "Expect '}' after mixin body.");
+
+
+   // Create the mixin statement AST node. The interpreter later evaluates
+  // this node and creates a runtime LoxMixin object.
+  return new Stmt.Mixin(name, methods);
 }
 
   

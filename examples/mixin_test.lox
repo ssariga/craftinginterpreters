@@ -1,0 +1,34 @@
+mixin Named 
+{
+  label() 
+  {
+    return this.name;
+  }
+}
+
+mixin Timestamped 
+{
+  createdAt() 
+  {
+    return clock();
+  }
+}
+
+class User with Named, Timestamped 
+{
+  init(name) 
+  {
+    this.name = name;
+  }
+
+  describe() 
+  {
+    print "User: " + this.label();
+  }
+}
+
+var user = User("Vulkan");
+
+user.describe();
+print user.label();
+print user.createdAt() > 0;

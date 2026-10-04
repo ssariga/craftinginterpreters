@@ -37,6 +37,8 @@ class Scanner
     keywords.put("true",   TRUE);
     keywords.put("var",    VAR);
     keywords.put("while",  WHILE);
+    keywords.put("mixin", TokenType.MIXIN); //added mixin support, challenge question 1, chapter 13
+    keywords.put("with", TokenType.WITH); //added mixin support, challenge question 1, chapter 13
   }
 
 

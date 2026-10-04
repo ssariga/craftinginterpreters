@@ -32,6 +32,7 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void>
     NONE,
     CLASS,
     SUBCLASS,
+    MIXIN //added mixin support, challenge question 1, chapter 13.
   }
 
   private ClassType currentClass = ClassType.NONE;
@@ -106,6 +107,13 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void>
       declare(superToken);
       define(superToken);
     
+    }
+
+
+    //added mixin support, challenge question 1, chapter 13
+    for (Expr.Variable mixin : stmt.mixins) 
+    {
+      resolve(mixin);
     }
 
     beginScope();
@@ -279,6 +287,44 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void>
     return null;
   }
 
+
+
+  @Override
+public Void visitMixinStmt(Stmt.Mixin stmt) 
+{
+  // Save the surrounding class state so it can be restored once the
+  // resolver is finished resolving this mixin declaration.
+  ClassType enclosingClass = currentClass;
+  currentClass = ClassType.MIXIN;
+
+  declare(stmt.name);
+  define(stmt.name);
+
+  beginScope();
+  Token thisToken = new Token(TokenType.THIS, "this", null, stmt.name.line);
+  declare(thisToken);
+  define(thisToken);
+
+
+   // Resolve each method declared in the mixin.
+  for (Stmt.Function method : stmt.methods) 
+  {
+    if (method.name.lexeme.equals("init")) 
+    {
+      // Mixins are method-reuse bundles, not constructible classes.
+    // Therefore, they must not declare an initializer named "init".
+      Lox.error(method.name,"A mixin cannot declare an initializer.");
+    }
+
+    resolveFunction(method, FunctionType.METHOD);
+  }
+
+  endScope();
+
+  currentClass = enclosingClass;
+  return null;
+}
+
    @Override
   public Void visitAssignExpr(Expr.Assign expr) 
   {
@@ -356,6 +402,13 @@ public Void visitConditionalExpr(Expr.Conditional expr)
     @Override
   public Void visitSuperExpr(Expr.Super expr) 
   {
+
+    //prevents mixin from being used in a superclass.
+    //challenge question 1, chapter 13
+    if (currentClass == ClassType.MIXIN) 
+      {
+        Lox.error(expr.keyword,"Can't use 'super' inside a mixin.");
+      }
     if (currentClass == ClassType.NONE) 
     {
       Lox.error(expr.keyword,

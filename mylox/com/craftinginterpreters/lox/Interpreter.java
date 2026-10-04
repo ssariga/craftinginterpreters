@@ -332,6 +332,8 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void>
             "Superclass must be a class.");
       }
     }
+
+    
     environment.define(stmt.name.lexeme, null);
 
      if (stmt.superclass != null) 
@@ -340,13 +342,53 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void>
       environment.define("super", superclass);
     }
 
+
+    // It starts empty. First, mixin methods are copied into it.
+  // Then methods written directly inside the class are added afterward.
+  // This order lets class methods override mixin methods.
     Map<String, LoxFunction> methods = new HashMap<>();
-    for (Stmt.Function method : stmt.methods) 
+    // Copy instance methods from each mixin listed after "with".
+    for (Expr.Variable mixinReference : stmt.mixins) 
     {
-      LoxFunction function = new LoxFunction(method, environment,
-          method.name.lexeme.equals("init"));
-      methods.put(method.name.lexeme, function);
+      // Evaluate the mixin name in the current environment.
+      Object value = evaluate(mixinReference);
+
+
+       // Reject ordinary classes, numbers, strings, functions, or undefined
+      // values. Only a LoxMixin may appear after "with".
+      if (!(value instanceof LoxMixin)) 
+      {
+        throw new RuntimeError(mixinReference.name,"Can only include mixins after 'with'.");
+      }
+
+        // The type check above makes this cast safe.
+      LoxMixin mixin = (LoxMixin) value;
+
+       // Copy every method from this mixin into the class's instance-method map.
+        for (Map.Entry<String, LoxFunction> entry : mixin.methods.entrySet()) 
+        {
+           // Extract the method name, such as "label" or "timestamp".
+          String methodName = entry.getKey();
+
+          // Two different mixins providing the same method is ambiguous.
+          if (methods.containsKey(methodName)) 
+          {
+              throw new RuntimeError(mixinReference.name,"Duplicate mixin method '" + methodName + "'.");
+          }
+
+          // Copy the reusable mixin method into the receiving class's method map.
+          // Normal LoxClass.findMethod() and LoxInstance.get() can now find it
+    // exactly as if it had been written directly in the class.
+        methods.put(methodName, entry.getValue());
     }
+}
+
+// Methods written directly in the class override methods supplied by mixins.
+  for (Stmt.Function method : stmt.methods) 
+  {
+    LoxFunction function = new LoxFunction(method,environment,method.name.lexeme.equals("init"));
+    methods.put(method.name.lexeme, function);
+  }
 
     Map<String, LoxFunction> classMethods = new HashMap<>();
 
@@ -651,5 +693,42 @@ public Object visitConditionalExpr(Expr.Conditional expr)
     }
   }
   
+  @Override
+
+public Void visitMixinStmt(Stmt.Mixin stmt) 
+{
+
+  // Build a method table for this mixin.
+  // The key is a method name, such as "label".
+  // The value is the compiled LoxFunction for that method.
+  Map<String, LoxFunction> methods = new HashMap<>();
+
+    // Convert every parsed mixin method into a callable LoxFunction.
+  for (Stmt.Function method : stmt.methods) 
+  {
+
+
+    // A mixin cannot define an initializer because it cannot be called
+    // like a class and cannot create its own instance.
+    if (method.name.lexeme.equals("init")) 
+    {
+      throw new RuntimeError(method.name,"A mixin cannot declare an initializer.");
+    }
+
+    // Wrap the method's AST node in a LoxFunction.
+    // "environment" is captured so the method retains lexical scoping,
+    // just like an ordinary Lox method or function.
+    // false means this is not an initializer.
+    LoxFunction function = new LoxFunction(method, environment,false);
+
+    // Add the method to the mixin's method table.
+    methods.put(method.name.lexeme, function);
+  }
+
+    // Store the finished mixin in the current environment under its name.
+  environment.define(stmt.name.lexeme,new LoxMixin(stmt.name.lexeme, methods));
+
+  return null;
+}
 
 }

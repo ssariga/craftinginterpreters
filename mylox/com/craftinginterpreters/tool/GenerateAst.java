@@ -33,11 +33,14 @@ public class GenerateAst {
     defineAst(outputDir, "Stmt", Arrays.asList( 
       "Block      : List<Stmt> statements",
       "Break      : Token keyword", //added Break support for challenge Question 3 Chapter 9
-      "Class     : Token name, Expr.Variable superclass, List<Stmt.Function> methods, List<Stmt.Function> classMethods", //added anonymous function support Challenge Question 2, chapter 10.
+      "Class : Token name, Expr.Variable superclass, List<Expr.Variable> mixins, List<Stmt.Function> methods, List<Stmt.Function> classMethods", 
+      //added anonymous function support Challenge Question 2, chapter 10.
+      //added mixin support, challenge question 1, chapter 13
       "Expression : Expr expression",
       "Function  : Token name, List<Token> params, List<Stmt> body, boolean isGetter",
       "If         : Expr condition, Stmt thenBranch," +
                   " Stmt elseBranch ",
+      "Mixin : Token name, List<Stmt.Function> methods",  //added mixin support, challenge question 1, chapter 13
       "Print      : Expr expression",
       "Return     : Token keyword, Expr value",
       "Var        : Token name, Expr initializer",
