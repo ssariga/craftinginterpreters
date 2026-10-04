@@ -1,0 +1,4 @@
+print "Who are you: ";
+var name = input();
+
+print "Hello, " + name;

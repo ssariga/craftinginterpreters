@@ -3,7 +3,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
+import java.util.Scanner; //allows for user input, challenge question 3, chapter 13.
 import com.craftinginterpreters.lox.Lox;
 
 
@@ -13,6 +13,7 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void>
 
   final Environment globals = new Environment();
   private Environment environment = globals;
+  private final Scanner input = new Scanner(System.in); //allows for user input, challenge question 3, chapter 13.
 
   //changed for Challenge question 4, chapter 11.
   private final Map<Expr, ResolvedLocal> locals = new HashMap<>();
@@ -37,7 +38,39 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void>
       @Override
       public String toString() { return "<native fn>"; }
     });
+
+//allows for user input, challenge question 3, chapter 13.
+    globals.define("input", new LoxCallable() 
+    {
+      @Override
+      public int arity() 
+      {
+        // input() takes no Lox arguments.
+        return 0;
+      }
+
+      @Override
+      public Object call(Interpreter interpreter,List<Object> arguments) 
+      {
+        // Return nil at end-of-file instead of throwing a Java exception.
+        // This occurs if standard input is closed or redirected input ends.
+          if (!input.hasNextLine()) 
+            {
+              return null;
+            }
+
+          // Read one complete line and return it as a Lox string.
+          return input.nextLine();
+      }
+
+        @Override
+        public String toString() 
+      {
+        return "<native fn input>";
+      }
+    } );
   }
+  
 
    //challenge Queston 2, Chapter 8
    //creation of new unitialized object
