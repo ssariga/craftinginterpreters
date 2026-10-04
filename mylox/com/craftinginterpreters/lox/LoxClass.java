@@ -19,17 +19,44 @@ class LoxClass implements LoxCallable
     this.classMethods = classMethods;
   }
 
-   LoxFunction findMethod(String name) 
+   LoxFunction findMethod(LoxInstance instance, String name) 
   {
-    if (methods.containsKey(name)) 
+     // "method" becomes the highest/super-most implementation found.
+    LoxFunction method = null;
+
+    // "inner" tracks the implementation immediately below "method" in
+    // the hierarchy. It will be made available to the chosen method.
+    LoxFunction inner = null;
+
+    // Start with the concrete runtime class, then walk upward through
+    // superclass references until there are no more parents.
+    LoxClass klass = this;
+
+    while (klass != null) 
     {
-      return methods.get(name);
+      // Do not return early. We must inspect every ancestor in order to
+      // prefer the highest ancestor's implementation.
+      if (klass.methods.containsKey(name)) 
+      {
+        // The last method found lower in the hierarchy becomes the
+        // current method's "inner" implementation.
+        inner = method;
+
+        // Because we are walking upward, every newly found method is
+        // more general than the previous method.
+        method = klass.methods.get(name);
+      }
+
+      klass = klass.superclass;
     }
 
-     if (superclass != null) 
+  // If some class in the hierarchy provided this method, bind both the
+  // receiver instance and the next lower implementation.
+    if (method != null) 
     {
-      return superclass.findMethod(name);
+      return method.bind(instance, inner);
     }
+
 
     return null;
   }
@@ -52,9 +79,11 @@ LoxFunction findClassMethod(String name)
   {
     LoxInstance instance = new LoxInstance(this);
 
-     LoxFunction initializer = findMethod("init");
+    // Use BETA-style lookup for init
+    LoxFunction initializer = findMethod(instance,"init");
     if (initializer != null) 
     {
+      // findMethod() already binds this and inner.
       initializer.bind(instance).call(interpreter, arguments);
     }
     return instance;
@@ -63,10 +92,31 @@ LoxFunction findClassMethod(String name)
   @Override
   public int arity() 
   {
-     LoxFunction initializer = findMethod("init");
+     LoxFunction initializer = findTopMethod("init");
     if (initializer == null) 
         return 0;
     
     return initializer.arity();
   }
+
+
+  //helper method to assist artiy() method.
+  //returns the highest matching implementation without binding it
+  //Challenge Question 2, Chapter 13.
+  private LoxFunction findTopMethod(String name) 
+{
+  LoxFunction method = null;
+
+  for (LoxClass klass = this;
+      klass != null;
+      klass = klass.superclass) 
+  {
+    if (klass.methods.containsKey(name)) 
+    {
+      method = klass.methods.get(name);
+    }
+  }
+
+  return method;
+}
 }

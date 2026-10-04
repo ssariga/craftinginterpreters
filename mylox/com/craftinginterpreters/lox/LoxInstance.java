@@ -20,7 +20,9 @@ private final Map<String, Object> fields = new HashMap<>();
       return fields.get(name.lexeme);
     }
 
-     LoxFunction method = klass.findMethod(name.lexeme);
+    //new findMethod allows for BETA support,
+    //Challenge quesiton 2, Chapter 13.
+     LoxFunction method = klass.findMethod(this,name.lexeme);
     if (method != null) 
     {
         LoxFunction boundMethod = method.bind(this);

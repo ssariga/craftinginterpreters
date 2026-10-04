@@ -82,6 +82,7 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void>
     return value;
   }
 
+  /* Disabled SUPER Support for challenge question 2, Chapter 13.
    @Override
   public Object visitSuperExpr(Expr.Super expr) 
   {
@@ -100,7 +101,13 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void>
     return method.bind(object);
 
   }
+*/
 
+@Override
+public Object visitSuperExpr(Expr.Super expr) 
+{
+  throw new RuntimeError(expr.keyword,"The BETA inheritance version of Lox uses 'inner' instead of 'super'.");
+}
 
    @Override
   public Object visitThisExpr(Expr.This expr) 
@@ -378,7 +385,7 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void>
 
           // Copy the reusable mixin method into the receiving class's method map.
           // Normal LoxClass.findMethod() and LoxInstance.get() can now find it
-    // exactly as if it had been written directly in the class.
+          // exactly as if it had been written directly in the class.
         methods.put(methodName, entry.getValue());
     }
 }
@@ -579,7 +586,7 @@ public Object visitFunctionExpr(Expr.Function expr)
     } 
     else 
     {
-      return globals.get(name);
+      return environment.get(name);
     }
   }
 

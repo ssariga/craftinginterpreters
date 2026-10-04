@@ -86,19 +86,23 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void>
     define(stmt.name);
 
 
+     // Reject: class Foo < Foo { ... }
     if (stmt.superclass != null && stmt.name.lexeme.equals(stmt.superclass.name.lexeme)) 
     {
       Lox.error(stmt.superclass.name,
           "A class can't inherit from itself.");
     }
 
+    // Resolve the superclass expression, if present.
     if (stmt.superclass != null) 
     {
       currentClass = ClassType.SUBCLASS;
+       // This scope is captured by methods so "super" can be resolved.
       resolve(stmt.superclass);
     }
 
-      if (stmt.superclass != null) 
+    /* Removed super for BETA support, challenge question 2, chapter 12
+    if (stmt.superclass != null) 
     {
       beginScope();
 
@@ -107,7 +111,7 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void>
       declare(superToken);
       define(superToken);
     
-    }
+    } */
 
 
     //added mixin support, challenge question 1, chapter 13
@@ -116,12 +120,14 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void>
       resolve(mixin);
     }
 
+    // Every instance method gets an implicit "this" and BETA-style "inner".
     beginScope();
-
+    // Add the implicit receiver variable used by all instance methods.
     Token thisToken = new Token(TokenType.THIS,"this",null,stmt.name.line);
 
     declare(thisToken);
     define(thisToken);
+
     
      for (Stmt.Function method : stmt.methods) 
     {
@@ -136,15 +142,20 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void>
     //added support for static methods, challenge question 1, chapter 12.
   for (Stmt.Function method : stmt.classMethods) 
   {
-  resolveFunction(method, FunctionType.FUNCTION);
+    resolveFunction(method, FunctionType.FUNCTION);
   }
 
+   // Close the this/inner scope opened immediately above.
+  endScope();
+
+  /*  Removed superclass support,
+      challenge question 2, chapter 13.
     if (stmt.superclass != null)
       {
           endScope();
       } 
+      */
       
-    endScope();
     currentClass = enclosingClass;
     return null;
   }
@@ -312,7 +323,7 @@ public Void visitMixinStmt(Stmt.Mixin stmt)
     if (method.name.lexeme.equals("init")) 
     {
       // Mixins are method-reuse bundles, not constructible classes.
-    // Therefore, they must not declare an initializer named "init".
+    // Therefore, they must not declare an initializer named "init". 
       Lox.error(method.name,"A mixin cannot declare an initializer.");
     }
 

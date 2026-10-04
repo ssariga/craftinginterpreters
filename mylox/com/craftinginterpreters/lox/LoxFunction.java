@@ -58,6 +58,26 @@ class LoxFunction implements LoxCallable
     return new LoxFunction(declaration, environment, isInitializer);
   }
 
+
+  //overload bind function that enables BETA Support
+  //Challenge question 2, chapter 13.
+  LoxFunction bind(LoxInstance instance, LoxFunction inner) 
+{
+  // Create a closure environment for this particular method call.
+  Environment environment = new Environment(closure);
+
+  // Bind "this" exactly as a normal Lox instance method does.
+  environment.define("this", instance);
+
+  // Bind "inner" to the next lower matching method in the hierarchy.
+  // It may be null when no subclass implementation exists.
+  environment.define("inner", inner);
+
+  return new LoxFunction(
+      declaration,
+      environment,
+      isInitializer);
+}
   @Override
   public int arity() 
   {
