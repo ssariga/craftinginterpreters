@@ -10,6 +10,7 @@ add_executable(myclox
         memory.c
         debug.c
         value.c
+        vm.c
 )
 
 
@@ -19,4 +20,17 @@ add_executable(test_chunk
         memory.c
         value.c
         debug.c
+        vm.c
 )
+
+
+add_executable(benchmark_vm
+        benchmark_vm.c
+        chunk.c
+        memory.c
+        value.c
+        debug.c
+        vm.c
+)
+
+target_compile_definitions(benchmark_vm PRIVATE VM_BENCHMARK)

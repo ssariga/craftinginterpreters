@@ -1,0 +1,33 @@
+#ifndef clox_vm_h
+#define clox_vm_h
+#define STACK_MAX 256
+
+#include "chunk.h"
+#include "value.h"
+
+typedef struct
+{
+    Chunk* chunk;
+    uint8_t* ip;
+    //Creation of dynmic stack support
+    //challenge questio 3, chapter 15
+    Value* stack;
+    Value* stackTop;
+    size_t stackCapacity;
+} VM;
+
+typedef enum
+{
+    INTERPRET_OK,
+    INTERPRET_COMPILE_ERROR,
+    INTERPRET_RUNTIME_ERROR
+}   InterpretResult;
+
+void initVM();
+void freeVM();
+InterpretResult interpret(Chunk* chunk);
+void push(Value value);
+Value pop();
+
+
+#endif

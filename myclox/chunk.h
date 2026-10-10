@@ -10,7 +10,12 @@
 typedef enum
 {
     OP_CONSTANT,
+    OP_ADD,
+    OP_SUBTRACT,
+    OP_MULTIPLY,
+    OP_DIVIDE,
     OP_CONSTANT_LONG, //for challenge question 2, chapter 14.
+    OP_NEGATE,
     OP_RETURN,
 } OpCode;
 
