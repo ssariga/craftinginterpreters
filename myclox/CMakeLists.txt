@@ -33,4 +33,9 @@ add_executable(benchmark_vm
         vm.c
 )
 
+add_executable(test_scanner
+        scanner_test.c
+        scanner.c
+)
+
 target_compile_definitions(benchmark_vm PRIVATE VM_BENCHMARK)
