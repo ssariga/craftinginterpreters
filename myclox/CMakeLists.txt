@@ -38,4 +38,10 @@ add_executable(test_scanner
         scanner.c
 )
 
+
+add_executable(interpolation_test
+        interpolation_test.c
+        scanner.c
+)
+
 target_compile_definitions(benchmark_vm PRIVATE VM_BENCHMARK)

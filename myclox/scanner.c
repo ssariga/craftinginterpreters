@@ -4,6 +4,8 @@
 #include "common.h"
 #include "scanner.h"
 
+#include <stdlib.h>
+
 typedef struct
 {
     const char* start;
@@ -13,13 +15,60 @@ typedef struct
 
 Scanner scanner;
 
+
+typedef enum
+{
+    SCAN_CODE,
+    SCAN_STRING,
+} ScannerMode;
+
+
+//Structure for interpolation framework.
+typedef struct ScannerState ScannerState;
+
+struct ScannerState
+{
+    ScannerMode mode;
+    ScannerState* previous;
+};
+
+static ScannerState* scannerState = NULL;
 //initializes the scanner.
 void initScanner(const char* source)
 {
     scanner.start = source;
     scanner.current = source;
     scanner.line = 1;
+    scannerState = NULL;
 }
+
+
+//Helper method, challenge question 1, chapter 16.
+//allocates the scanner state
+static void pushScannerState(ScannerMode mode)
+{
+    ScannerState* state = malloc(sizeof(ScannerState));
+
+    if (state == NULL)
+    {
+        fprintf(stderr, "Could not allocate scanner state.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    state->mode = mode;
+    state->previous = scannerState;
+    scannerState = state;
+}
+
+//Helper method, challenge question 1, chapter 16.
+//frees the scanner state
+static void popScannerState(void)
+{
+    ScannerState* finished = scannerState;
+    scannerState = finished->previous;
+    free(finished);
+}
+
 
 //checks to see if a character is an alphabet character.
 static bool isAlpha(char c)
@@ -224,6 +273,49 @@ static Token string()
     advance();
     return makeToken(TOKEN_STRING);
 }
+//scans the interpolated string token. Challenge question 1, chapter 16.
+static Token scanStringToken()
+{
+    // scanner.start was set at the beginning of scanToken().
+    // It currently points at the first character after the opening quote,
+    // or at the first character after ${.
+
+    // An interpolation can begin immediately.
+    if (peek() == '$' && peekNext() == '{') {
+        advance();  // Consume $.
+        advance();  // Consume {.
+
+        // Remember to return to string mode after this expression.
+        pushScannerState(SCAN_STRING);
+
+        return makeToken(TOKEN_INTERPOLATION);
+    }
+
+    // Scan literal text until the string ends or interpolation begins.
+    while (peek() != '"' && peek() != '$' && !isAtEnd()) {
+        if (peek() == '\n') {
+            scanner.line++;
+        }
+
+        advance();
+    }
+
+    if (isAtEnd()) {
+        return errorToken("Unterminated string.");
+    }
+
+    if (peek() == '"') {
+        // Consume the closing quote and return to the enclosing code mode.
+        advance();
+        popScannerState();
+
+        return makeToken(TOKEN_STRING);
+    }
+
+    // We stopped at ${, so return this literal piece.
+    return makeToken(TOKEN_STRING);
+}
+
 //allows you to scan the tokens.
 Token scanToken()
 {
@@ -233,7 +325,11 @@ Token scanToken()
     if (isAtEnd())
         return makeToken(TOKEN_EOF);
 
-
+    // Check string mode BEFORE consuming a character
+    if (scannerState != NULL && scannerState->mode == SCAN_STRING)
+    {
+        return scanStringToken();
+    }
 
     char c = advance();
     if (isAlpha(c))
@@ -242,13 +338,20 @@ Token scanToken()
     if (isDigit(c))
         return number();
 
+
     //scans tokens that are a single character.
+    //Modified '}' method for interpolation support, challenge question 1 chapter 16.
     switch (c)
     {
         case '(': return makeToken(TOKEN_LEFT_PAREN);
         case ')': return makeToken(TOKEN_RIGHT_PAREN);
         case '{': return makeToken(TOKEN_LEFT_BRACE);
-        case '}': return makeToken(TOKEN_RIGHT_BRACE);
+        case '}':
+            if (scannerState != NULL) {
+                popScannerState();
+                return makeToken(TOKEN_INTERPOLATION_END);
+            };
+            return makeToken(TOKEN_RIGHT_BRACE);
         case ';': return makeToken(TOKEN_SEMICOLON);
         case ',': return makeToken(TOKEN_COMMA);
         case '.': return makeToken(TOKEN_DOT);
@@ -264,7 +367,11 @@ Token scanToken()
             return makeToken(match('=') ? TOKEN_LESS_EQUAL : TOKEN_LESS);
         case '>':
             return makeToken(match('=') ? TOKEN_GREATER_EQUAL : TOKEN_GREATER);
-        case '"': return string();
+        case '"':
+            // Enter string mode before scanning its contents.
+            pushScannerState(SCAN_STRING);
+            return scanStringToken();
+
     }
 
     return errorToken("Unexpected character.");
