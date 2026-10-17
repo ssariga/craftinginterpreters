@@ -102,14 +102,14 @@ static void testConstantEncoding(void)
     // Populate indices 0 through 254 without emitting instructions.
     for (int i = 0; i < 255; i++)
     {
-        addConstant(&chunk, (Value)i);
+        addConstant(&chunk, NUMBER_VAL(i));
     }
 
     // Index 255: largest index that fits in the short instruction.
-    writeConstant(&chunk, (Value)255, 10);
+    writeConstant(&chunk, NUMBER_VAL(255), 10);
 
     // Index 256: first index that needs the long instruction.
-    writeConstant(&chunk, (Value)256, 20);
+    writeConstant(&chunk, NUMBER_VAL(256), 20);
 
     writeChunk(&chunk, OP_RETURN, 30);
 

@@ -56,4 +56,16 @@ add_executable(conditional_test
         debug.c
 )
 
+add_executable(dynamic_test
+        main.c
+        vm.c
+        dynamic_test.lox
+        compiler.c
+        scanner.c
+        chunk.c
+        memory.c
+        value.c
+        debug.c
+)
+
 target_compile_definitions(benchmark_vm PRIVATE VM_BENCHMARK)

@@ -15,15 +15,15 @@ int main(void)
     initChunk(&chunk);
 
     // Add two constants once; their indices are 0 and 1.
-    int zero = addConstant(&chunk, (Value)0);
-    int one = addConstant(&chunk, (Value)1);
+    int zero = addConstant(&chunk, NUMBER_VAL(0));
+    int one = addConstant(&chunk, NUMBER_VAL(1));
 
     // Begin with a running total of zero.
     writeChunk(&chunk, OP_CONSTANT, 1);
     writeChunk(&chunk, (uint8_t)zero, 1);
 
     /* done for OP_NEGATE Challenge Question 4, Chapter 15. */
-    writeConstant(&chunk, (Value)1, 1);
+    writeConstant(&chunk, NUMBER_VAL(1), 1);
     for (int i = 0; i < 100000; i++)
     {
         writeChunk(&chunk, OP_NEGATE, 1);
