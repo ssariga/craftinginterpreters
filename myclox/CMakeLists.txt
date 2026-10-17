@@ -11,6 +11,8 @@ add_executable(myclox
         debug.c
         value.c
         vm.c
+        scanner.c
+        compiler.c
 )
 
 
@@ -42,6 +44,16 @@ add_executable(test_scanner
 add_executable(interpolation_test
         interpolation_test.c
         scanner.c
+)
+
+add_executable(conditional_test
+        conditional_test.c
+        compiler.c
+        scanner.c
+        chunk.c
+        memory.c
+        value.c
+        debug.c
 )
 
 target_compile_definitions(benchmark_vm PRIVATE VM_BENCHMARK)

@@ -26,6 +26,10 @@ typedef enum
 
     //added for challenge Question 1, Chapter 16
     TOKEN_INTERPOLATION,TOKEN_INTERPOLATION_END,
+
+
+    //Added mixfix Token support, challenge Question 3, Chapter 17.
+    TOKEN_QUESTION,TOKEN_COLON,
   } TokenType;
 
 typedef struct

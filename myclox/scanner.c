@@ -371,6 +371,8 @@ Token scanToken()
             // Enter string mode before scanning its contents.
             pushScannerState(SCAN_STRING);
             return scanStringToken();
+        case '?': return makeToken(TOKEN_QUESTION); //Added mixfix Token support, challenge Question 3, Chapter 17.
+        case ':': return makeToken(TOKEN_COLON); //Added mixfix Token support, challenge Question 3, Chapter 17.
 
     }
 

@@ -86,6 +86,7 @@ static void runFile(const char* path)
 int main(int argc, const char* argv[])
 {
 
+    initMemory(16u * 1024u * 1024u);
     initVM(); // initializes the VM.
     //REPL and Script loading.
     if (argc == 1)
