@@ -340,3 +340,54 @@ void* reallocate(void* pointer, size_t oldSize, size_t newSize) {
 
 //This is the end of the implementation
 //for challenge question 3, chapter 14
+
+
+static void freeObject(Obj* object)
+{
+  switch (object->type)
+  {
+    /* Original version of the OBJ_STRING case
+    case OBJ_STRING:
+    {
+      ObjString* string = (ObjString*)object;
+      FREE_ARRAY(char, string->chars, string->length + 1);
+      FREE(ObjString, object);
+      break;
+    } */
+    //Challenge Question 1, Chapter 19
+    //only one allocation to release. string->chars points inside that allocation,
+    //so it must not be freed separately.
+    //Passing the complete allocation size to your existing reallocate()
+    //also preserves the allocator interface’s size information.
+    case OBJ_STRING:
+    {
+
+      //Neither kind frees chars separately:
+      //Owned characters are part of the object allocation.
+      //Borrowed characters belong to someone else.
+      //The ownership flag determines the allocation size passed back to your allocator
+      ObjString* string = (ObjString*)object;
+
+      size_t size = sizeof(ObjString);
+      if (string->ownsChars)
+      {
+        sizeof(ObjString) + (size_t)string->length + 1;
+      }
+
+
+      reallocate(object, size, 0);
+      break;
+    }
+  }
+}
+
+void freeObjects()
+{
+  Obj* object = vm.objects;
+  while (object != NULL)
+  {
+    Obj* next = object->next;
+    freeObject(object);
+    object = next;
+  }
+}

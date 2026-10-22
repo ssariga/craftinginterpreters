@@ -9,11 +9,13 @@ typedef struct
 {
     Chunk* chunk;
     uint8_t* ip;
-    //Creation of dynmic stack support
-    //challenge questio 3, chapter 15
+    //Creation of dynamic stack support
+    //challenge question 3, chapter 15
     Value* stack;
     Value* stackTop;
     size_t stackCapacity;
+
+    Obj* objects;
 } VM;
 
 typedef enum
@@ -22,6 +24,8 @@ typedef enum
     INTERPRET_COMPILE_ERROR,
     INTERPRET_RUNTIME_ERROR
 }   InterpretResult;
+
+extern VM vm;
 
 void initVM();
 void freeVM();

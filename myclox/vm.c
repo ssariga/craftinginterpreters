@@ -1,10 +1,13 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 
 #include "common.h"
 #include "compiler.h"
+#include "object.h"
+#include "memory.h"
 #include "vm.h"
 #include "debug.h"
 #include "memory.h"
@@ -36,6 +39,7 @@ void initVM()
     vm.stack = NULL;
     vm.stackCapacity = 0;
     resetStack();
+    vm.objects = NULL;
 }
 
 //Frees the vm dynamically.
@@ -46,6 +50,7 @@ void freeVM()
     vm.stack = NULL;
     vm.stackCapacity = 0;
     resetStack();
+    freeObjects();
 }
 
 //adjusted for dynamic stack support, challenge question 3, chapter 15.
@@ -143,6 +148,60 @@ static bool isFalsey(Value value)
 {
     return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value));
 }
+
+// Allows for the concatenation of Strings
+/*
+static void concatenate()
+{
+    ObjString* b = AS_STRING(pop());
+    ObjString* a = AS_STRING(pop());
+
+    int length = a->length + b->length;
+    char* chars = ALLOCATE(char, length + 1);
+    memcpy(chars, a->chars, a->length);
+    memcpy(chars + a->length, b->chars, b->length);
+    chars[length] = '\0';
+
+    ObjString* result = takeString(chars, length);
+    push(OBJ_VAL(result));
+} */
+
+
+static void concatenate(void)
+{
+    ObjString* b = AS_STRING(peek(0));
+    ObjString* a = AS_STRING(peek(1));
+
+    int length = a->length + b->length;
+
+    ObjString* result = allocateString(length);
+
+
+    //new memcpy calls so borrowed strings can be copied
+    //Challenge Question 2, Chapter 19
+    memcpy(result->data,
+           a->chars,
+           (size_t)a->length);
+
+    memcpy(result->data + a->length,
+           b->chars,
+           (size_t)b->length);
+
+    /* No longer used, due to challenge question 2, Chapter 19
+    memcpy(result->chars,
+           a->chars,
+           (size_t)a->length);
+
+    memcpy(result->chars + a->length,
+           b->chars,
+           (size_t)b->length);
+    */
+
+    pop();
+    pop();
+
+    push(OBJ_VAL(result));
+}
 //This is the single most important function in all of clox,
 //by far. When the interpreter executes a user’s program most of its time is spent here
 //It is the beating heart of the VM.
@@ -222,7 +281,20 @@ static InterpretResult run()
             }
             case OP_GREATER:  BINARY_OP(BOOL_VAL, >); break;
             case OP_LESS:     BINARY_OP(BOOL_VAL, <); break;
-            case OP_ADD:      BINARY_OP(NUMBER_VAL, +); break;
+            case OP_ADD: {
+                if (IS_STRING(peek(0)) && IS_STRING(peek(1))) {
+                    concatenate();
+                } else if (IS_NUMBER(peek(0)) && IS_NUMBER(peek(1))) {
+                    double b = AS_NUMBER(pop());
+                    double a = AS_NUMBER(pop());
+                    push(NUMBER_VAL(a + b));
+                } else {
+                    runtimeError(
+                        "Operands must be two numbers or two strings.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
+            }
             case OP_SUBTRACT: BINARY_OP(NUMBER_VAL, -); break;
             case OP_MULTIPLY: BINARY_OP(NUMBER_VAL, *); break;
             case OP_DIVIDE:   BINARY_OP(NUMBER_VAL, /); break;
