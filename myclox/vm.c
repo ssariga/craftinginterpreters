@@ -40,6 +40,7 @@ void initVM()
     vm.stackCapacity = 0;
     resetStack();
     vm.objects = NULL;
+    initTable(&vm.strings); //intialize the table.
 }
 
 //Frees the vm dynamically.
@@ -50,6 +51,7 @@ void freeVM()
     vm.stack = NULL;
     vm.stackCapacity = 0;
     resetStack();
+    freeTable(&vm.strings);//free the table data.
     freeObjects();
 }
 
@@ -174,9 +176,28 @@ static void concatenate(void)
 
     int length = a->length + b->length;
 
-    ObjString* result = allocateString(length);
+    char* chars = ALLOCATE(char, length + 1);
+
+    memcpy(chars, a->chars, a->length);
+    memcpy(chars + a->length, b->chars, b->length);
+    chars[length] = '\0';
+
+    ObjString* result = takeString(chars, length);
+    push(OBJ_VAL(result));
+
+    //memcpy(result->chars,a->chars,(size_t)a->length);
+    //memcpy(result->chars + a->length,b->chars, (size_t)b->length);
 
 
+    //result->hash = hashString(result->chars, result->length);
+    //pop();
+    //pop();
+
+
+
+    //ObjString* result = allocateString(length);
+
+    /*
     //new memcpy calls so borrowed strings can be copied
     //Challenge Question 2, Chapter 19
     memcpy(result->data,
@@ -187,20 +208,11 @@ static void concatenate(void)
            b->chars,
            (size_t)b->length);
 
-    /* No longer used, due to challenge question 2, Chapter 19
-    memcpy(result->chars,
-           a->chars,
-           (size_t)a->length);
+        */
 
-    memcpy(result->chars + a->length,
-           b->chars,
-           (size_t)b->length);
-    */
+    //No longer used, due to challenge question 2, Chapter 19
 
-    pop();
-    pop();
 
-    push(OBJ_VAL(result));
 }
 //This is the single most important function in all of clox,
 //by far. When the interpreter executes a user’s program most of its time is spent here

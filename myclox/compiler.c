@@ -213,7 +213,7 @@ static void number()
     double value = strtod(parser.previous.start, NULL);
     emitConstant(NUMBER_VAL(value));
 }
-static void string(void)
+static void string()
 {
     emitConstant(OBJ_VAL(copyString(parser.previous.start + 1,parser.previous.length - 2)));
 }

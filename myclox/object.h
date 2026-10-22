@@ -30,13 +30,15 @@ struct ObjString {
 
 
 //New payload for strings, provides greater memory efficiency
-//challenge Question 2, Chapter 19
+//challenge Question 2, Chapter 19 (formerly, now remade to standard version.
 struct ObjString {
     Obj obj;
     int length;
-    bool ownsChars;
-    const char* chars;
-    char data[];
+    char* chars;
+    uint32_t hash;
+    //bool ownsChars;
+
+    //char data[];
 };
 
 /*
@@ -48,23 +50,29 @@ After: one allocation
  */
 
 
-ObjString* allocateString(int length);
+//ObjString* allocateString(int length);
 //contains the characters for string concatenation.
 
 //no longer using takeString due to the updated concatenation
 //Challenge Question 1, Chapter 19.
-//ObjString* takeString(char* chars, int length);
 
+ObjString* takeString(char* chars, int length);
 ObjString* copyString(const char* chars, int length);
-
-//declaration of borrowString method,
-//Challenge Question 2, Chapter 19
-ObjString* borrowString(const char* chars, int length);
 void printObject(Value value);
 
 static inline bool isObjType(Value value, ObjType type) {
     return IS_OBJ(value) && AS_OBJ(value)->type == type;
 }
 
+/*
+//declaration of borrowString method,
+//Challenge Question 2, Chapter 19
+ObjString* borrowString(const char* chars, int length);
+*/
+
+//uint32_t hashString(const char* chars, int length);
+
+
+//ObjString* internString(ObjString* string);
 
 #endif

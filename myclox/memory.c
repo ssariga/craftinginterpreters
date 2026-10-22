@@ -346,19 +346,21 @@ static void freeObject(Obj* object)
 {
   switch (object->type)
   {
-    /* Original version of the OBJ_STRING case
+    //Original version of the OBJ_STRING case
     case OBJ_STRING:
     {
       ObjString* string = (ObjString*)object;
       FREE_ARRAY(char, string->chars, string->length + 1);
       FREE(ObjString, object);
       break;
-    } */
+    }
     //Challenge Question 1, Chapter 19
     //only one allocation to release. string->chars points inside that allocation,
     //so it must not be freed separately.
     //Passing the complete allocation size to your existing reallocate()
     //also preserves the allocator interface’s size information.
+    //commented out to make Chapter 20 work.
+    /*
     case OBJ_STRING:
     {
 
@@ -377,7 +379,7 @@ static void freeObject(Obj* object)
 
       reallocate(object, size, 0);
       break;
-    }
+    } */
   }
 }
 

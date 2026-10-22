@@ -65,6 +65,7 @@ add_executable(dynamic_test
         memory.c
         value.c
         object.c
+        table.c
         debug.c
 )
 target_compile_definitions(benchmark_vm PRIVATE VM_BENCHMARK)
