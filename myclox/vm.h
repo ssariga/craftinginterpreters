@@ -14,6 +14,7 @@ typedef struct
     //challenge question 3, chapter 15
     Value* stack;
     Value* stackTop;
+    Table globals;
     Table strings;
     size_t stackCapacity;
 

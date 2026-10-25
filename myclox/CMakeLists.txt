@@ -13,6 +13,8 @@ add_executable(myclox
         vm.c
         scanner.c
         compiler.c
+        object.c
+        table.c
 )
 
 
