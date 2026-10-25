@@ -69,3 +69,30 @@ add_executable(dynamic_test
         debug.c
 )
 target_compile_definitions(benchmark_vm PRIVATE VM_BENCHMARK)
+
+
+add_executable(primitive_test
+        primitive_test.c
+        vm.c
+        compiler.c
+        scanner.c
+        chunk.c
+        memory.c
+        value.c
+        object.c
+        table.c
+        debug.c
+)
+
+add_executable(hash_benchmark
+        hash_benchmark.c
+        vm.c
+        compiler.c
+        scanner.c
+        chunk.c
+        memory.c
+        value.c
+        object.c
+        table.c
+        debug.c
+)

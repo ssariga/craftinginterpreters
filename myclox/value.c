@@ -49,7 +49,6 @@ void printValue(Value value)
     }
 }
 
-
 //First, we check the types. If the Values have different types,
 //they are definitely not equal.
 //Otherwise, we unwrap the two Values and compare them directly.
