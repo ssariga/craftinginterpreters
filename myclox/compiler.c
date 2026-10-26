@@ -3,7 +3,7 @@
 #include "common.h"
 #include "compiler.h"
 #include "scanner.h"
-
+#include "vm.h" // for challenge question 2 Chapter 21.
 #ifdef DEBUG_PRINT_CODE
 #include "debug.h"
 #endif
@@ -186,7 +186,86 @@ static void parsePrecedence(Precedence precedence);
 //It then returns the index of that constant in the constant table.
 static uint8_t identifierConstant(Token* name)
 {
-    return makeConstant(OBJ_VAL(copyString(name->start, name->length)));
+    /* BASE_CASE
+    ObjString* identifier = copyString(name->start, name->length);
+    Value index;
+
+    if (tableGet(&vm.globalNames, identifier, &index))
+    {
+        return (uint8_t)AS_NUMBER(index);
+    }
+
+    uint8_t newIndex = (uint8_t)vm.globalValues.count;
+    writeValueArray(&vm.globalValues, UNDEFINED_VAL);
+
+    tableSet(
+        &vm.globalNames,
+        identifier,
+        NUMBER_VAL((double)newIndex)
+    );
+
+    return newIndex;
+    // return makeConstant(OBJ_VAL(copyString(name->start, name->length)));
+
+    /*
+    //Modified version of identifierConstant for Challenge Question 1, Chapter 21.
+    // Intern the name. Identical strings share the same ObjString.
+    ObjString* identifier = copyString(name->start, name->length);
+
+    ValueArray* constants = &currentChunk()->constants;
+
+    // Reuse an existing constant-table slot for this string.
+    for (int i = 0; i < constants->count; i++)
+    {
+        Value constant = constants->values[i];
+
+        if (IS_STRING(constant) &&
+            AS_STRING(constant) == identifier)
+        {
+            return (uint8_t)i;
+        }
+    }
+
+    // This name is not in the constant table yet.
+    return makeConstant(OBJ_VAL(identifier));
+    */
+
+    //replaces the constant-table search
+    // more efficient way to store and access global variables without changing the semantics.
+    //Challenge Question 2, Chapter 21.
+
+    // Intern the variable's name.
+    ObjString* identifier = copyString(name->start, name->length);
+
+    // If this name already has a slot, reuse its index.
+    Value index;
+    if (tableGet(&vm.globalNames, identifier, &index))
+    {
+        return (uint8_t)AS_NUMBER(index);
+    }
+
+    // A one-byte operand can address slots 0 through 255.
+    // Check before casting so the index cannot wrap around.
+    if (vm.globalValues.count > UINT8_MAX)
+    {
+        error("Too many global variables.");
+        return 0;
+    }
+
+    // The current count is the index of the next available slot.
+    uint8_t newIndex = (uint8_t)vm.globalValues.count;
+
+    // Reserve the slot without defining the variable yet.
+    writeValueArray(&vm.globalValues, UNDEFINED_VAL);
+
+    // Remember which slot belongs to this name.
+    tableSet(
+        &vm.globalNames,
+        identifier,
+        NUMBER_VAL((double)newIndex)
+    );
+
+    return newIndex;
 }
 
 //consume next token, sends here

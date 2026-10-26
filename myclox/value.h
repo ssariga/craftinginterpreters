@@ -11,6 +11,7 @@ typedef enum
     VAL_NIL,
     VAL_NUMBER,
     VAL_OBJ,
+    VAL_UNDEFINED, // support for challenge Question 2, Chapter 21.
 } ValueType;
 
 typedef struct
@@ -28,6 +29,12 @@ typedef struct
 #define IS_NIL(value)     ((value).type == VAL_NIL)
 #define IS_NUMBER(value)  ((value).type == VAL_NUMBER)
 
+
+//handles UNDEFINED_VALUES, challenge question 2, chapter 21.
+#define IS_UNDEFINED(value) ((value).type == VAL_UNDEFINED)
+
+#define UNDEFINED_VAL \
+    ((Value){VAL_UNDEFINED, {.number = 0}})
 
 //In order to do anything with a Value, though,
 //we need to unpack it and get the C value back out.

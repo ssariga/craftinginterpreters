@@ -14,7 +14,13 @@ typedef struct
     //challenge question 3, chapter 15
     Value* stack;
     Value* stackTop;
-    Table globals;
+    // Table globals; // replaced for more efficient storage and access of global variables, challenge Question 2, Chapter 21/
+
+    //Added for more efficient storage and access of global variables
+    // Challenge Question 2, Chapter 21
+    Table globalNames;
+    ValueArray globalValues;
+
     Table strings;
     size_t stackCapacity;
 

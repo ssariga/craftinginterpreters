@@ -40,7 +40,12 @@ void initVM()
     vm.stackCapacity = 0;
     resetStack();
     vm.objects = NULL;
-    initTable(&vm.globals);
+    //initTable(&vm.globals); //removed for challenge question 2, chapter 21.
+
+    //Added for more efficient storage and access of global variables
+    // Challenge Question 2, Chapter 21
+    initTable(&vm.globalNames);
+    initValueArray(&vm.globalValues);
     initTable(&vm.strings); //intialize the table.
 }
 
@@ -52,7 +57,12 @@ void freeVM()
     vm.stack = NULL;
     vm.stackCapacity = 0;
     resetStack();
-    freeTable(&vm.globals);
+    // freeTable(&vm.globals); //removed for challenge question 2, chapter 21.
+
+    //Added for more efficient storage and access of global variables
+    // Challenge Question 2, Chapter 21
+    freeTable(&vm.globalNames);
+    freeValueArray(&vm.globalValues);
     freeTable(&vm.strings);//free the table data.
     freeObjects();
 }
@@ -260,6 +270,9 @@ static InterpretResult run()
     vm.stackTop--;                                                \
   } while (false) */
 
+    // Modified OP_SET_GLOBAL, OP_DEFINE_GLOBAL,  and OP_GET_GLOBAL
+    //They now are array-based versions that allow for greater access
+    //of global variables. Challenge Question 2, Chapter 21.
     for (;;)
     {
         #ifdef DEBUG_TRACE_EXECUTION
@@ -288,34 +301,40 @@ static InterpretResult run()
             case OP_TRUE: push(BOOL_VAL(true)); break;
             case OP_FALSE: push(BOOL_VAL(false)); break;
             case OP_POP: pop(); break;
-            case OP_GET_GLOBAL: {
-                ObjString* name = READ_STRING();
-                Value value;
-                if (!tableGet(&vm.globals, name, &value))
+            case OP_GET_GLOBAL:
+            {
+                uint8_t index = READ_BYTE();
+                Value value = vm.globalValues.values[index];
 
+                if (IS_UNDEFINED(value))
                 {
-                    runtimeError("Undefined variable '%s'.", name->chars);
+                    runtimeError("Undefined variable.");
                     return INTERPRET_RUNTIME_ERROR;
                 }
+
                 push(value);
                 break;
             }
+
             case OP_DEFINE_GLOBAL:
             {
-                ObjString* name = READ_STRING();
-                tableSet(&vm.globals, name, peek(0));
-                pop();
+                uint8_t index = READ_BYTE();
+
+                vm.globalValues.values[index] = pop();
                 break;
             }
+
             case OP_SET_GLOBAL:
             {
-                ObjString* name = READ_STRING();
-                if (tableSet(&vm.globals, name, peek(0))) 
+                uint8_t index = READ_BYTE();
+
+                if (IS_UNDEFINED(vm.globalValues.values[index]))
                 {
-                    tableDelete(&vm.globals, name);
-                    runtimeError("Undefined variable '%s'.", name->chars);
+                    runtimeError("Undefined variable.");
                     return INTERPRET_RUNTIME_ERROR;
                 }
+
+                vm.globalValues.values[index] = peek(0);
                 break;
             }
             case OP_EQUAL:
