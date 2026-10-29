@@ -185,6 +185,8 @@ static void concatenate(void)
     chars[length] = '\0';
 
     ObjString* result = takeString(chars, length);
+    pop(); // Remove the right operand.
+    pop(); // Remove the left operand.
     push(OBJ_VAL(result));
 
     //memcpy(result->chars,a->chars,(size_t)a->length);
@@ -216,6 +218,21 @@ static void concatenate(void)
 
 
 }
+
+
+//Helper method
+//Using two separate statements makes the order of reading and advancing vm.ip explicit.
+//Challenge Question 4, Chapter 22
+static uint16_t readShort(void)
+{
+    uint16_t high = *vm.ip++;
+    uint16_t low = *vm.ip++;
+
+    return (uint16_t)((high << 8) | low);
+}
+
+
+
 //This is the single most important function in all of clox,
 //by far. When the interpreter executes a user’s program most of its time is spent here
 //It is the beating heart of the VM.
@@ -289,12 +306,30 @@ static InterpretResult run()
             case OP_FALSE: push(BOOL_VAL(false)); break;
             case OP_POP: pop(); break;
             case OP_GET_LOCAL: {
+                /*
                 uint8_t slot = READ_BYTE();
                 push(vm.stack[slot]);
+                break;*/
+
+                //makes the order of reading and advancing vm.ip explicit.
+                //Challenge Question 4, Chapter 22
+                uint16_t slot = readShort();
+                Value value = vm.stack[slot];
+                push(value);
                 break;
+
             }
             case OP_SET_LOCAL: {
+
+                /*
                 uint8_t slot = READ_BYTE();
+                vm.stack[slot] = peek(0);
+                break; */
+
+                //makes the order of reading and advancing vm.ip explicit.
+                //Challenge Question 4, Chapter 22
+                uint16_t slot = readShort();
+
                 vm.stack[slot] = peek(0);
                 break;
             }

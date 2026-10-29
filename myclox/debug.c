@@ -62,6 +62,18 @@ static int longConstantInstruction(const char* name,Chunk* chunk,int offset)
     return offset + 4;
 }
 
+
+static int shortInstruction(const char* name,Chunk* chunk,int offset)
+{
+    uint16_t slot = (uint16_t)(
+        ((uint16_t)chunk->code[offset + 1] << 8) |
+        chunk->code[offset + 2]
+    );
+
+    printf("%-16s %5u\n", name, (unsigned)slot);
+
+    return offset + 3;
+}
 int disassembleInstruction(Chunk* chunk, int offset)
 {
     printf("%04d ", offset);
@@ -73,6 +85,9 @@ int disassembleInstruction(Chunk* chunk, int offset)
      *That gives us a way to map back to the original code when we’re trying to figure out what
      *some blob of bytecode is supposed to do. After printing the offset
      *of the instruction—the number of bytes from the beginning of the chunk—we show its source line */
+    //Keep global cases using their existing operand decoder.
+    //A local instruction now occupies three bytes, so returning offset + 3 is essential to keep the listing aligned.
+    //Challenge Question 4, Chapter 22.
     if (offset > 0 && line == getLine(chunk, offset - 1))
     {
         printf("   | ");
@@ -98,9 +113,11 @@ int disassembleInstruction(Chunk* chunk, int offset)
         case OP_POP:
             return simpleInstruction("OP_POP", offset);
         case OP_GET_LOCAL:
-            return byteInstruction("OP_GET_LOCAL", chunk, offset);
+            //return byteInstruction("OP_GET_LOCAL", chunk, offset);
+            return shortInstruction("OP_GET_LOCAL", chunk, offset);
         case OP_SET_LOCAL:
-            return byteInstruction("OP_SET_LOCAL", chunk, offset);
+            //return byteInstruction("OP_SET_LOCAL", chunk, offset);
+            return shortInstruction("OP_SET_LOCAL", chunk, offset);
         case OP_GET_GLOBAL:
             return constantInstruction("OP_GET_GLOBAL", chunk, offset);
         case OP_DEFINE_GLOBAL:

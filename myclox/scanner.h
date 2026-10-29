@@ -30,6 +30,12 @@ typedef enum
 
     //Added mixfix Token support, challenge Question 3, Chapter 17.
     TOKEN_QUESTION,TOKEN_COLON,
+
+
+
+    //added const support, challenge Question 3, Chapter 22
+    TOKEN_CONST
+
   } TokenType;
 
 typedef struct

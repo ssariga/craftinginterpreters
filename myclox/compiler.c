@@ -53,11 +53,31 @@ typedef struct
 typedef struct {
     Token name;
     int depth;
+    bool isConst; //const support, challenge question 3, chapter 22.
 } Local;
 
+
+/*
 typedef struct {
     Local locals[UINT8_COUNT];
     int localCount;
+    int scopeDepth;
+} Compiler; */
+
+
+
+//new Compiler struct
+//, we need to widen the local-slot operand and
+//enlarge the compiler’s local-variable storage.
+//A straightforward implementation is to use 16-bit local operands,
+//allowing slots 0 through 65535, and dynamically grow the compiler’s local array.
+#define LOCAL_LIMIT 65536
+
+typedef struct
+{
+    Local* locals;
+    int localCount;
+    int localCapacity;
     int scopeDepth;
 } Compiler;
 
@@ -154,6 +174,19 @@ static void emitBytes(uint8_t byte1, uint8_t byte2)
     emitByte(byte2);
 }
 
+//Challenge Question 4, Chapter 22.
+//A local read will now have this layout:
+//OP_GET_LOCAL  high-byte  low-byte
+//We will widen the existing local instructions rather than add separate “long” opcodes.
+//This makes every local read or write one byte larger,
+//but keeps the implementation simple.
+static void emitShort(uint16_t value)
+{
+    // Emit the high byte first, then the low byte.
+    emitByte((uint8_t)(value >> 8));
+    emitByte((uint8_t)(value & 0xff));
+}
+
 static void emitReturn()
 {
     emitByte(OP_RETURN);
@@ -178,9 +211,13 @@ static void emitConstant(Value value)
     emitBytes(OP_CONSTANT, makeConstant(value));
 }
 
+//Extending clox to allow more than 256 local variables to be in scope at a time.
+//Challenge Question 4, Chapter 22.
 static void initCompiler(Compiler* compiler)
 {
+    compiler->locals = NULL;
     compiler->localCount = 0;
+    compiler->localCapacity = 0;
     compiler->scopeDepth = 0;
     current = compiler;
 }
@@ -266,10 +303,31 @@ static int resolveLocal(Compiler* compiler, Token* name)
 static void addLocal(Token name)
 {
 
-    if (current->localCount == UINT8_COUNT)
+    if (current->localCount >= LOCAL_LIMIT)
     {
         error("Too many local variables in function.");
         return;
+    }
+
+    if (current->localCount == current->localCapacity)
+    {
+        int capacity = current->localCapacity < 8 ? 8 : current->localCapacity * 2;
+
+        if (capacity > LOCAL_LIMIT)
+        {
+            capacity = LOCAL_LIMIT;
+        }
+
+        Local* locals = realloc(current->locals,sizeof(Local) * (size_t)capacity);
+
+        if (locals == NULL)
+        {
+            fprintf(stderr, "Could not allocate compiler locals.\n");
+            exit(EXIT_FAILURE);
+        }
+
+        current->locals = locals;
+        current->localCapacity = capacity;
     }
 
     Local* local = &current->locals[current->localCount++];
@@ -277,6 +335,7 @@ static void addLocal(Token name)
     // Keep it uninitialized until its initializer is compiled.
     local->depth = -1;
 
+    local->isConst = false; // initialize const variable, challenge question 3, chapter 22.
 }
 
 static void declareVariable()
@@ -385,8 +444,54 @@ static void block()
     consume(TOKEN_RIGHT_BRACE, "Expect '}' after block.");
 }
 
-static void varDeclaration()
+//modified varDeclaration
+//For const support, challenge Question 3, Chapter 22.
+static void varDeclaration(bool isConst)
 {
+    int previousLocalCount = current->localCount;
+
+    uint8_t global = parseVariable("Expect variable name.");
+
+    if (isConst && current->scopeDepth == 0)
+    {
+        error("Const declarations are only supported in local scopes.");
+    }
+
+    // Set the flag only if parseVariable() actually added a local.
+    // This avoids changing the previous local if the array is full.
+    if (current->scopeDepth > 0 &&
+        current->localCount > previousLocalCount)
+    {
+        current->locals[current->localCount - 1].isConst = isConst;
+    }
+
+    if (match(TOKEN_EQUAL))
+    {
+        expression();
+    }
+    else
+    {
+        if (isConst)
+        {
+            error("Expect initializer for const variable.");
+        }
+
+        // Maintain the compiler's expected stack layout while
+        // recovering from the error.
+        emitByte(OP_NIL);
+    }
+
+    consume(TOKEN_SEMICOLON,"Expect ';' after variable declaration.");
+
+    //If addLocal() rejected a declaration because the new limit was reached,
+    //this prevents markInitialized() from modifying the previous local.
+    //Challenge Question 4, Chapter 22.
+    if (current->scopeDepth == 0 || current->localCount > previousLocalCount)
+    {
+        defineVariable(global);
+    }
+
+    /*
     uint8_t global = parseVariable("Expect variable name.");
 
     if (match(TOKEN_EQUAL))
@@ -401,6 +506,7 @@ static void varDeclaration()
             "Expect ';' after variable declaration.");
 
     defineVariable(global);
+    */
 }
 
 static void expressionStatement()
@@ -455,8 +561,15 @@ static void declaration()
 {
     if (match(TOKEN_VAR))
     {
-        varDeclaration();
-    } else
+        //varDeclaration();
+        //modified for const support, challenge question 3, chapter 22.
+        varDeclaration(false);
+    }
+    else if (match(TOKEN_CONST))
+    {
+        varDeclaration(true);
+    }
+    else
     {
         statement();
     }
@@ -502,14 +615,21 @@ static void string(bool canAssign)
     emitConstant(OBJ_VAL(copyString(parser.previous.start + 1,parser.previous.length - 2)));
 }
 
+//modified for const  support,
+//challenge question 3, Chapter 22.
 static void namedVariable(Token name, bool canAssign)
 {
     uint8_t getOp, setOp;
+
     int arg = resolveLocal(current, &name);
-    if (arg != -1)
+    bool isLocal = arg != -1;
+    bool isConst = false;
+    if (isLocal)
     {
         getOp = OP_GET_LOCAL;
         setOp = OP_SET_LOCAL;
+
+        isConst = current->locals[arg].isConst;
     }
     else
     {
@@ -520,12 +640,40 @@ static void namedVariable(Token name, bool canAssign)
 
     if (canAssign && match(TOKEN_EQUAL))
     {
+        if (isConst)
+        {
+            error("Can't assign to a const variable.");
+        }
+
+        // Still parse the right-hand side for error recovery.
         expression();
-        emitBytes(setOp, (uint8_t)arg);
+
+        if (!isConst)
+        {
+            emitByte(setOp);
+
+            if (isLocal)
+            {
+                emitShort((uint16_t)arg);
+            }
+            else
+            {
+                emitByte((uint8_t)arg);
+            }
+        }
     }
     else
     {
-        emitBytes(getOp, (uint8_t)arg);
+        emitByte(getOp);
+
+        if (isLocal)
+        {
+            emitShort((uint16_t)arg);
+        }
+        else
+        {
+            emitByte((uint8_t)arg);
+        }
     }
 
 }
@@ -619,6 +767,7 @@ ParseRule rules[] =
   [TOKEN_EOF]           = {NULL,     NULL,   PREC_NONE},
     [TOKEN_QUESTION] = {NULL, conditional, PREC_CONDITIONAL},
     [TOKEN_COLON]    = {NULL, NULL,        PREC_NONE},
+    [TOKEN_CONST] = {NULL, NULL, PREC_NONE}, //const support, challenge question 3, chapter 22
 };
 
 
@@ -678,6 +827,12 @@ bool compile(const char* source, Chunk* chunk)
         declaration();
     }
 
+    //This cleanup runs whether compilation succeeds or reports a syntax error.
+    //Challenge Question 4, Chapter 22.
     endCompiler();
+
+    free(compiler.locals);
+    current = NULL;
+
     return !parser.hadError;
 }

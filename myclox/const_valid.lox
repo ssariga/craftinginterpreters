@@ -1,0 +1,16 @@
+{
+  const greeting = "hello";
+  print greeting;
+
+  var count = 1;
+  count = count + 1;
+  print count;
+
+  {
+    var greeting = "inner";
+    greeting = "updated inner";
+    print greeting;
+  }
+
+  print greeting;
+}
