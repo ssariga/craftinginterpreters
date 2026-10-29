@@ -1,0 +1,141 @@
+// 1. If / else: execute only the selected branch.
+print "== if / else ==";
+
+if (true) print "then";
+else print "FAIL: wrong else";
+
+if (false) print "FAIL: wrong then";
+else print "else";
+
+// No else: execution should simply continue.
+if (false) print "FAIL: false branch";
+
+// Only false and nil are falsey; zero is truthy.
+if (nil) print "FAIL: nil is truthy";
+else print "nil is falsey";
+
+if (0) print "zero is truthy";
+
+// Else belongs to the nearest unmatched if.
+if (true)
+  if (false) print "FAIL: nested then";
+  else print "nearest else";
+
+
+// 2. Logical operators: preserve operand values and short-circuit.
+print "== logical operators ==";
+
+print "left" or "right";
+print nil or "fallback";
+print false and "unused";
+print true and "right";
+
+// These assignments must be skipped.
+{
+  var touched = 0;
+
+  false and (touched = 1);
+  true or (touched = 2);
+
+  print touched; // 0
+
+  // These assignments must execute.
+  true and (touched = touched + 1);
+  false or (touched = touched + 1);
+
+  print touched; // 2
+}
+
+// and binds more tightly than or.
+print true or false and false; // true
+
+
+// 3. While: repeat, update locals, and clean up body scopes.
+print "== while ==";
+
+{
+  var i = 0;
+  var sum = 0;
+
+  while (i < 4) {
+    var term = i;
+    sum = sum + term;
+    i = i + 1;
+  }
+
+  print i;   // 4
+  print sum; // 6
+
+  // Body must not execute.
+  while (false) print "FAIL: false while";
+
+  // A new local after the loop checks condition/body cleanup.
+  var after = 99;
+  print after;
+}
+
+
+// 4. For: initializer, condition, increment, and loop scope.
+print "== for ==";
+
+{
+  var total = 0;
+
+  for (var i = 1; i <= 4; i = i + 1) {
+    total = total + i;
+  }
+
+  print total; // 10
+
+  // The loop's i should no longer be in scope.
+  var i = "after loop";
+  print i;
+}
+
+
+// 5. Omitted initializer and increment.
+print "== optional for clauses ==";
+
+{
+  var i = 0;
+
+  for (; i < 3;) {
+    i = i + 1;
+  }
+
+  print i; // 3
+
+  // Expression initializer; body must be skipped.
+  for (i = 0; false; i = i + 1) {
+    print "FAIL: false for";
+  }
+
+  print i; // 0
+}
+
+
+// 6. Nested loops and local-variable shadowing.
+print "== nested loops ==";
+
+{
+  var count = 0;
+
+  for (var i = 0; i < 2; i = i + 1) {
+    for (var j = 0; j < 3; j = j + 1) {
+      count = count + 1;
+    }
+  }
+
+  print count; // 6
+
+  var name = "outer";
+
+  if (true) {
+    var name = "inner";
+    print name;
+  }
+
+  print name;
+}
+
+print "DONE";

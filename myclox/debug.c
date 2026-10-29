@@ -41,7 +41,17 @@ static int byteInstruction(const char* name, Chunk* chunk,int offset)
     printf("%-16s %4d\n", name, slot);
     return offset + 2;
 }
-
+//OP_JUMP and OP_JUMP_IF_FALSE,
+//These two instructions have a new format with a 16-bit operand,
+//so we add a new utility function to disassemble them.
+static int jumpInstruction(const char* name, int sign, Chunk* chunk, int offset)
+{
+    uint16_t jump = (uint16_t)(chunk->code[offset + 1] << 8);
+    jump |= chunk->code[offset + 2];
+    printf("%-16s %4d -> %d\n", name, offset,
+           offset + 3 + sign * jump);
+    return offset + 3;
+}
 //Challenge Question 2, Chapter 14.
 static int longConstantInstruction(const char* name,Chunk* chunk,int offset)
 {
@@ -127,6 +137,12 @@ int disassembleInstruction(Chunk* chunk, int offset)
             return simpleInstruction("OP_NEGATE", offset);
         case OP_PRINT:
             return simpleInstruction("OP_PRINT", offset);
+        case OP_JUMP:
+            return jumpInstruction("OP_JUMP", 1, chunk, offset);
+        case OP_JUMP_IF_FALSE:
+            return jumpInstruction("OP_JUMP_IF_FALSE", 1, chunk, offset);
+        case OP_LOOP:
+            return jumpInstruction("OP_LOOP", -1, chunk, offset);
         case OP_RETURN:
             return simpleInstruction("OP_RETURN", offset);
         default:
