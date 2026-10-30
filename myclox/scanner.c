@@ -195,6 +195,43 @@ static TokenType checkKeyword(int start, int length,
 static TokenType identifierType()
 {
 
+    //Added bounded while loop support, challenge question 3, chapter 23.
+    if (checkKeyword(0, 5, "limit", TOKEN_LIMIT) == TOKEN_LIMIT)
+    {
+        return TOKEN_LIMIT;
+    }
+
+    //Added bounded while loop support, challenge question 3, chapter 23.
+    //Checks to see if a token has been exhausted.
+    if (checkKeyword(0, 9, "exhausted", TOKEN_EXHAUSTED) == TOKEN_EXHAUSTED)
+    {
+        return TOKEN_EXHAUSTED;
+    }
+
+    //added continue support, challenge question 2, chapter 23.
+    if (checkKeyword(0, 8, "continue", TOKEN_CONTINUE) == TOKEN_CONTINUE)
+    {
+        return TOKEN_CONTINUE;
+    }
+
+    //Added  switch support
+    //Challenge Question 1, Chapter 22.
+    if (checkKeyword(0, 6, "switch", TOKEN_SWITCH) == TOKEN_SWITCH)
+    {
+        return TOKEN_SWITCH;
+    }
+
+    if (checkKeyword(0, 4, "case", TOKEN_CASE) == TOKEN_CASE)
+    {
+        return TOKEN_CASE;
+    }
+
+    if (checkKeyword(0, 7, "default", TOKEN_DEFAULT) == TOKEN_DEFAULT)
+    {
+        return TOKEN_DEFAULT;
+    }
+
+    // Keep existing switch and final return below.
     switch (scanner.start[0])
     {
         case 'a': return checkKeyword(1, 2, "nd", TOKEN_AND);

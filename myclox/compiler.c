@@ -55,10 +55,20 @@ typedef struct {
     int depth;
 } Local;
 
+
+//Loop context provides support for continue operation, Challenge Question 2, Chapter 23.
+typedef struct LoopContext
+{
+    struct LoopContext* enclosing;
+    int continueTarget;
+    int localCount;
+} LoopContext;
+
 typedef struct {
     Local locals[UINT8_COUNT];
     int localCount;
     int scopeDepth;
+    LoopContext* loop;
 } Compiler;
 
 Parser parser;
@@ -154,6 +164,12 @@ static void emitBytes(uint8_t byte1, uint8_t byte2)
     emitByte(byte2);
 }
 
+
+static void emitLocalOperand(uint8_t instruction, int slot)
+{
+    emitBytes(instruction, (uint8_t)slot);
+}
+
 static void emitLoop(int loopStart)
 {
     emitByte(OP_LOOP);
@@ -163,6 +179,33 @@ static void emitLoop(int loopStart)
 
     emitByte((offset >> 8) & 0xff);
     emitByte(offset & 0xff);
+}
+
+/*A continue skips the ordinary cleanup instructions
+ *at the ends of the blocks it exits.
+ *It therefore needs its own runtime cleanup for those locals.
+ *Local values occupy stack slots, and normal scope exit removes them using OP_POP
+ */
+static void continueStatement(void)
+{
+    consume(TOKEN_SEMICOLON, "Expect ';' after 'continue'.");
+
+    LoopContext* loop = current->loop;
+
+    if (loop == NULL)
+    {
+        error("Can't use 'continue' outside of a loop.");
+        return;
+    }
+
+    // Discard locals belonging to the body scopes we are leaving.
+    // Do not change the compiler's localCount.
+    for (int i = current->localCount; i > loop->localCount; i--)
+    {
+        emitByte(OP_POP);
+    }
+
+    emitLoop(loop->continueTarget);
 }
 
 static int emitJump(uint8_t instruction)
@@ -196,10 +239,13 @@ static void emitConstant(Value value)
     emitBytes(OP_CONSTANT, makeConstant(value));
 }
 
+// Added compiler->loop = NULL;, to allow for continue operation
+//Challenge Question 2, Chapter 23.
 static void initCompiler(Compiler* compiler)
 {
     compiler->localCount = 0;
     compiler->scopeDepth = 0;
+    compiler->loop = NULL;
     current = compiler;
 }
 
@@ -463,16 +509,19 @@ static void forStatement()
     if (match(TOKEN_SEMICOLON))
     {
         // No initializer.
-    } else if (match(TOKEN_VAR))
+    }
+    else if (match(TOKEN_VAR))
     {
         varDeclaration();
-    } else
+    }
+    else
     {
         expressionStatement();
     }
 
     int loopStart = currentChunk()->count;
     int exitJump = -1;
+
     if (!match(TOKEN_SEMICOLON))
     {
         expression();
@@ -487,16 +536,45 @@ static void forStatement()
     {
         int bodyJump = emitJump(OP_JUMP);
         int incrementStart = currentChunk()->count;
+
         expression();
         emitByte(OP_POP);
+
         consume(TOKEN_RIGHT_PAREN, "Expect ')' after for clauses.");
 
         emitLoop(loopStart);
+
         loopStart = incrementStart;
         patchJump(bodyJump);
     }
 
+    //Added to provide support for continue operation
+    //challenge question 2, chapter 23.
+    LoopContext loop;
+
+    // Remember the surrounding loop, if one exists.s
+    loop.enclosing = current->loop;
+
+    // A continue jumps to the increment if present;
+    // otherwise, it jumps directly to the condition.
+    loop.continueTarget = loopStart;
+
+    // Record how many locals exist before entering the body.
+    // This includes any variable declared in the for initializer.
+    // A continue must preserve those locals and discard body locals.
+    loop.localCount = current->localCount;
+
+    // Make this the nearest enclosing loop while compiling its body.
+    current->loop = &loop;
+
+    //compile the body.
     statement();
+
+    // Restore the surrounding loop after finishing this body's compilation.
+    current->loop = loop.enclosing;
+
+    // When the body finishes normally, jump to the increment if present,
+    // or directly to the condition otherwise.
     emitLoop(loopStart);
 
     if (exitJump != -1)
@@ -547,6 +625,8 @@ static void printStatement()
  *if the condition is falsey. We patch the jump after
  *compiling the body and take care to pop the condition
 value from the stack on either path.  */
+
+/* Replaced for bounded-while loop suppport, challenge question 3, chapter 23.
 static void whileStatement()
 {
     int loopStart = currentChunk()->count;
@@ -556,19 +636,205 @@ static void whileStatement()
 
     int exitJump = emitJump(OP_JUMP_IF_FALSE);
     emitByte(OP_POP);
+
+    //Added to provide support for continue operation,
+    //The context is active only while compiling the body.
+    //Its saved local count identifies
+    //the variables that existed before entering that body.
+    //Challenge question 2, Chapter 23.
+    LoopContext loop;
+
+    // Remember the surrounding loop, if one exists.
+    loop.enclosing = current->loop;
+
+    // A continue jumps to the increment if present;
+    // otherwise, it jumps directly to the condition.
+    loop.continueTarget = loopStart;
+
+    // Record how many locals exist before entering the body.
+    // This includes any variable declared in the for initializer.
+    // A continue must preserve those locals and discard body locals.
+    loop.localCount = current->localCount;
+
+    // Make this the nearest enclosing loop while compiling its body.
+    current->loop = &loop;
+
     statement();
+
+    // Restore the surrounding loop after finishing this body's compilation.
+    current->loop = loop.enclosing;
+
+    // When the body finishes normally, jump to the increment if present,
+    // or directly to the condition otherwise.
     emitLoop(loopStart);
 
     patchJump(exitJump);
     emitByte(OP_POP);
+} */
+
+
+//MODIFIED whileStatement
+//Supports both
+//while (condition) statement
+//while (condition) limit (maximum) {
+// ...
+//} exhausted {
+    // ...
+//}
+//In short this provides bounded while support, challenge question 3, chapter 23.
+static void whileStatement(void)
+{
+    // The budget appears after the condition in source, but must
+    // execute before the first condition check.
+    int initializationJump = emitJump(OP_JUMP);
+
+    int conditionStart = currentChunk()->count;
+
+    consume(TOKEN_LEFT_PAREN, "Expect '(' after 'while'.");
+    expression();
+    consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
+
+    int conditionExit = emitJump(OP_JUMP_IF_FALSE);
+
+    // True-condition path: discard the condition.
+    emitByte(OP_POP);
+
+    // Skip the initialization code on each successful condition check.
+    int bodyJump = emitJump(OP_JUMP);
+
+    // First entry into the loop lands here.
+    patchJump(initializationJump);
+
+    if (!match(TOKEN_LIMIT))
+    {
+        // Ordinary while: no initialization is necessary.
+        emitLoop(conditionStart);
+
+        patchJump(bodyJump);
+
+        LoopContext loop;
+        loop.enclosing = current->loop;
+        loop.continueTarget = conditionStart;
+        loop.localCount = current->localCount;
+
+        current->loop = &loop;
+        statement();
+        current->loop = loop.enclosing;
+
+        emitLoop(conditionStart);
+
+        patchJump(conditionExit);
+        emitByte(OP_POP);
+
+        return;
+    }
+
+    // This private scope owns the hidden iteration budget.
+    beginScope();
+
+    int budgetSlot = current->localCount;
+
+    Token hiddenName;
+    hiddenName.type = TOKEN_IDENTIFIER;
+    hiddenName.start = "";
+    hiddenName.length = 0;
+    hiddenName.line = parser.previous.line;
+
+    // An empty identifier cannot be written by a Lox programmer.
+    addLocal(hiddenName);
+
+    // addLocal() reports an error if local storage is exhausted.
+    if (current->localCount != budgetSlot + 1)
+    {
+        endScope();
+        return;
+    }
+
+    consume(TOKEN_LEFT_PAREN, "Expect '(' after 'limit'.");
+    expression();
+    consume(TOKEN_RIGHT_PAREN, "Expect ')' after loop limit.");
+
+    emitByte(OP_CHECK_LIMIT);
+
+    // The validated value becomes the hidden local's initial value.
+    markInitialized();
+
+    // Initialization runs once, then execution checks the condition.
+    emitLoop(conditionStart);
+
+    // A true condition lands here to inspect the remaining budget.
+    patchJump(bodyJump);
+
+    emitLocalOperand(OP_GET_LOCAL, budgetSlot);
+    emitConstant(NUMBER_VAL(0));
+    emitByte(OP_GREATER);
+
+    int exhaustedJump = emitJump(OP_JUMP_IF_FALSE);
+
+    // Discard the successful budget comparison.
+    emitByte(OP_POP);
+
+    // Consume an iteration before entering the body.
+    emitLocalOperand(OP_GET_LOCAL, budgetSlot);
+    emitConstant(NUMBER_VAL(1));
+    emitByte(OP_SUBTRACT);
+    emitLocalOperand(OP_SET_LOCAL, budgetSlot);
+
+    // Assignment leaves its result on the stack; discard that copy.
+    emitByte(OP_POP);
+
+    LoopContext loop;
+    loop.enclosing = current->loop;
+    loop.continueTarget = conditionStart;
+
+    // Preserve the budget across continue, but discard body locals.
+    loop.localCount = current->localCount;
+
+    current->loop = &loop;
+
+    consume(TOKEN_LEFT_BRACE, "Expect '{' before bounded loop body.");
+    beginScope();
+    block();
+    endScope();
+
+    current->loop = loop.enclosing;
+
+    // Both normal completion and continue return to the condition.
+    emitLoop(conditionStart);
+
+    // Budget exhausted: remove the failed comparison result.
+    patchJump(exhaustedJump);
+    emitByte(OP_POP);
+
+    if (match(TOKEN_EXHAUSTED))
+    {
+        consume(
+            TOKEN_LEFT_BRACE,
+            "Expect '{' after 'exhausted'."
+        );
+
+        beginScope();
+        block();
+        endScope();
+    }
+
+    // Skip the condition-false cleanup when coming from exhaustion.
+    int finishedJump = emitJump(OP_JUMP);
+
+    // Normal termination: discard the false condition.
+    patchJump(conditionExit);
+    emitByte(OP_POP);
+
+    patchJump(finishedJump);
+
+    // Both termination paths discard the hidden budget.
+    endScope();
 }
-
-
-
 /*We skip tokens indiscriminately until we reach something that looks like a statement boundary.
  *We recognize the boundary by looking for a preceding token that can end a statement,
  *like a semicolon. Or we’ll look for a subsequent token that begins a statement,
  *usually one of the control flow or declaration keywords.
+ *Addec TOKEN_CONTINUE for continue support, challenge Question 2, chapter 23.
  */
 static void synchronize()
 {
@@ -587,6 +853,7 @@ static void synchronize()
             case TOKEN_WHILE:
             case TOKEN_PRINT:
             case TOKEN_RETURN:
+            case TOKEN_CONTINUE:
                 return;
 
             default:
@@ -614,6 +881,142 @@ static void declaration()
         synchronize();
 }
 
+//Added switch statement support, challenge question 1, chapter 23.
+static void switchStatement(void)
+{
+    consume(TOKEN_LEFT_PAREN, "Expect '(' after 'switch'.");
+    expression();
+    consume(TOKEN_RIGHT_PAREN, "Expect ')' after switch value.");
+    consume(TOKEN_LEFT_BRACE, "Expect '{' before switch cases.");
+
+    // Each matching case needs a jump to the end of the switch.
+    int* endJumps = NULL;
+    int endCount = 0;
+    int endCapacity = 0;
+
+    bool hasDefault = false;
+
+    while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF))
+    {
+        if (match(TOKEN_CASE))
+        {
+            // Before:
+            //   [..., switchValue]
+            //
+            // After comparison:
+            //   [..., switchValue, comparisonResult]
+            emitByte(OP_DUP);
+            expression();
+            consume(TOKEN_COLON, "Expect ':' after case value.");
+            emitByte(OP_EQUAL);
+
+            int nextCaseJump = emitJump(OP_JUMP_IF_FALSE);
+
+            // Matching path: discard both the comparison result
+            // and the switch value before executing statements.
+            emitByte(OP_POP);
+            emitByte(OP_POP);
+
+            while (!check(TOKEN_CASE) &&!check(TOKEN_DEFAULT) &&!check(TOKEN_RIGHT_BRACE) &&!check(TOKEN_EOF))
+            {
+                statement();
+
+                if (parser.panicMode)
+                {
+                    break;
+                }
+            }
+
+            if (endCount == endCapacity)
+            {
+                int capacity = endCapacity < 8
+                    ? 8
+                    : endCapacity * 2;
+
+                int* jumps = realloc(
+                    endJumps,
+                    sizeof(int) * (size_t)capacity
+                );
+
+                if (jumps == NULL)
+                {
+                    free(endJumps);
+                    fprintf(stderr, "Could not allocate switch jumps.\n");
+                    exit(EXIT_FAILURE);
+                }
+
+                endJumps = jumps;
+                endCapacity = capacity;
+            }
+
+            // No fallthrough: a matched case skips all later clauses.
+            endJumps[endCount++] = emitJump(OP_JUMP);
+
+            // Nonmatching path: discard only the comparison result.
+            // Leave the switch value for the next case.
+            patchJump(nextCaseJump);
+            emitByte(OP_POP);
+
+            if (parser.panicMode)
+            {
+                break;
+            }
+        }
+        else if (match(TOKEN_DEFAULT))
+        {
+            hasDefault = true;
+
+            consume(TOKEN_COLON, "Expect ':' after 'default'.");
+
+            // No more comparisons are needed.
+            emitByte(OP_POP);
+
+            while (!check(TOKEN_CASE) &&
+                   !check(TOKEN_DEFAULT) &&
+                   !check(TOKEN_RIGHT_BRACE) &&
+                   !check(TOKEN_EOF))
+            {
+                statement();
+
+                if (parser.panicMode)
+                {
+                    break;
+                }
+            }
+
+            if (check(TOKEN_CASE) || check(TOKEN_DEFAULT))
+            {
+                errorAtCurrent(
+                    "Default must be the last switch clause."
+                );
+            }
+
+            break;
+        }
+        else
+        {
+            errorAtCurrent("Expect 'case' or 'default' in switch.");
+            break;
+        }
+    }
+
+    consume(TOKEN_RIGHT_BRACE, "Expect '}' after switch.");
+
+    if (!hasDefault)
+    {
+        // Reached only when no case matched, including an empty switch.
+        emitByte(OP_POP);
+    }
+
+    // Matched cases land after the unmatched-path cleanup.
+    for (int i = 0; i < endCount; i++)
+    {
+        patchJump(endJumps[i]);
+    }
+
+    free(endJumps);
+}
+
 static void statement()
 {
     if (match(TOKEN_PRINT))
@@ -637,6 +1040,14 @@ static void statement()
         beginScope();
         block();
         endScope();
+    }
+    else if (match(TOKEN_SWITCH))
+    {
+        switchStatement();
+    }
+    else if (match(TOKEN_CONTINUE))
+    {
+    continueStatement();
     }
     else
     {
@@ -739,6 +1150,7 @@ static void unary(bool canAssign)
 }
 
 //Support for compiling mixfix expressions, question 3, Chapter 17.
+
 static void conditional(bool canAssign)
 {
     // The condition has already been parsed, and '?' consumed.
@@ -752,6 +1164,9 @@ static void conditional(bool canAssign)
     parsePrecedence(PREC_ASSIGNMENT);
 }
 
+//[TOKEN_SWITCH],[TOKEN_CASE],[TOKEN_DEFAULT]
+//Added for switch support, challenge question 1, chapter 23.
+//[TOKEN_CONTINUE], added for continue support, challenge question 2, chapter 23.
 ParseRule rules[] =
 {
   [TOKEN_LEFT_PAREN]    = {grouping, NULL,   PREC_NONE},
@@ -795,6 +1210,12 @@ ParseRule rules[] =
   [TOKEN_EOF]           = {NULL,     NULL,   PREC_NONE},
     [TOKEN_QUESTION] = {NULL, conditional, PREC_CONDITIONAL},
     [TOKEN_COLON]    = {NULL, NULL,        PREC_NONE},
+    [TOKEN_SWITCH]  = {NULL, NULL, PREC_NONE},
+    [TOKEN_CASE]    = {NULL, NULL, PREC_NONE},
+    [TOKEN_DEFAULT] = {NULL, NULL, PREC_NONE},
+    [TOKEN_CONTINUE] = {NULL, NULL, PREC_NONE},
+    [TOKEN_LIMIT]     = {NULL, NULL, PREC_NONE},
+    [TOKEN_EXHAUSTED] = {NULL, NULL, PREC_NONE},
 };
 
 

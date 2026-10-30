@@ -1,0 +1,120 @@
+print "== exhaustion ==";
+
+{
+  var i = 0;
+
+  while (i < 10) limit (3)
+  {
+    print i;
+    i = i + 1;
+  } exhausted {
+    print "exhausted";
+  }
+
+  print i;
+}
+
+print "== condition becomes false ==";
+
+{
+  var i = 0;
+
+  while (i < 2) limit (5)
+  {
+    i = i + 1;
+  } exhausted
+  {
+    print "FAIL: unnecessary exhaustion";
+  }
+
+  print i;
+}
+
+print "== exact budget ==";
+
+{
+  var i = 0;
+
+  while (i < 3) limit (3)
+  {
+    i = i + 1;
+  }
+  exhausted
+  {
+    print "FAIL: exact budget should succeed";
+  }
+
+  print i;
+}
+
+print "== continue and local cleanup ==";
+
+{
+  var attempts = 0;
+
+  while (true) limit (3)
+  {
+    var temporary = attempts;
+
+    {
+      var nested = temporary;
+      attempts = attempts + 1;
+      continue;
+    }
+  }
+  exhausted
+  {
+    print attempts;
+  }
+
+  var after = "stack balanced";
+  print after;
+}
+
+print "== zero budget ==";
+
+while (true) limit (0)
+{
+  print "FAIL: body executed";
+}
+exhausted
+{
+  print "zero exhausted";
+}
+
+while (false) limit (0)
+{
+  print "FAIL: false body";
+}
+exhausted
+{
+  print "FAIL: false condition is not exhaustion";
+}
+
+print "== limit evaluated once ==";
+
+{
+  var evaluations = 0;
+  var i = 0;
+
+  while (i < 2) limit (evaluations = evaluations + 1)
+  {
+    i = i + 1;
+  }
+  exhausted
+  {
+    print "one iteration allowed";
+  }
+
+  print evaluations;
+  print i;
+}
+
+print "== optional handler ==";
+
+while (true) limit (1)
+{
+  print "once";
+}
+
+print "DONE";

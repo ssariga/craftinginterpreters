@@ -30,6 +30,21 @@ typedef enum
 
     //Added mixfix Token support, challenge Question 3, Chapter 17.
     TOKEN_QUESTION,TOKEN_COLON,
+
+
+    //Added switch support
+    //Challenge Question , Chapter 23.
+    TOKEN_SWITCH,
+    TOKEN_CASE,
+    TOKEN_DEFAULT,
+
+
+    //Added continue support, challenge question 2, Chapter 23.
+    TOKEN_CONTINUE,
+
+    //Added bounded while support, challenge question 3, chapter 23.
+    TOKEN_LIMIT,
+    TOKEN_EXHAUSTED,
   } TokenType;
 
 typedef struct

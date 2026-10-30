@@ -1,0 +1,98 @@
+//tests the switch implementation for clox.
+
+print "== match and no fallthrough ==";
+
+switch (2)
+{
+  case 1:
+    print "FAIL: first case";
+  case 2:
+    print "two";
+    print "still two";
+  case 3:
+    print "FAIL: fallthrough";
+  default:
+    print "FAIL: default after match";
+}
+
+print "== default ==";
+
+switch ("unknown")
+{
+  case "red":
+    print "FAIL: red";
+  default:
+    print "default";
+}
+
+print "== no match, no default ==";
+
+switch (99)
+{
+  case 1:
+    print "FAIL: unexpected match";
+}
+
+print "continued";
+
+print "== evaluation order ==";
+
+{
+  var selectorRuns = 0;
+  var caseRuns = 0;
+
+  switch (selectorRuns = selectorRuns + 1)
+  {
+    case (caseRuns = caseRuns + 1):
+      print "first match";
+    case (caseRuns = caseRuns + 1):
+      print "FAIL: later case";
+  }
+
+  print selectorRuns;
+  print caseRuns;
+
+  var after = "stack balanced";
+  print after;
+}
+
+print "== nested switch and locals ==";
+
+{
+  var outer = "outer";
+
+  switch (true)
+  {
+    case true:
+      {
+        var inner = "inner";
+        print inner;
+
+        switch (nil)
+        {
+          case false:
+            print "FAIL: false equals nil";
+          case nil:
+            print "nested nil";
+          default:
+            print "FAIL: nested default";
+        }
+
+        print inner;
+      }
+  }
+
+  print outer;
+}
+
+print "== default only and empty ==";
+
+switch (123)
+{
+  default:
+    print "default only";
+}
+
+switch (456) {}
+
+print "DONE";

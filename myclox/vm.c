@@ -11,6 +11,7 @@
 #include "vm.h"
 #include "debug.h"
 #include "memory.h"
+#include<math.h>
 
 VM vm;
 //resets the stack
@@ -224,7 +225,10 @@ static void concatenate(void)
  *pointed at by ip and then advances the instruction pointer.
  *The first byte of any instruction is the opcode. Given a numeric opcode,
  *we need to get to the right C code that implements that instruction’s semantics.
- *This process is called decoding or dispatching the instruction. */
+ *This process is called decoding or dispatching the instruction.
+ *
+ * Added bounded while loop support challenge question 3, chapter 23.
+ */
 static InterpretResult run()
 {
 #define READ_BYTE() (*vm.ip++)
@@ -407,6 +411,43 @@ static InterpretResult run()
             {
                 // Exit interpreter.
                 return INTERPRET_OK;
+            }
+            case OP_DUP:
+            {
+                Value value = peek(0);
+                push(value);
+                break;
+            }
+            case OP_CHECK_LIMIT:
+            {
+                Value value = peek(0);
+
+                if (!IS_NUMBER(value))
+                {
+                    runtimeError("Loop limit must be a nonnegative integer.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                double number = AS_NUMBER(value);
+
+                // Restrict the budget to integers represented exactly by a double.
+                // Validate the range before converting to uint64_t.
+                if (!isfinite(number) ||
+                    number < 0 ||
+                    number > 9007199254740991.0)
+                {
+                    runtimeError("Loop limit is outside the supported range.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                if ((double)(uint64_t)number != number)
+                {
+                    runtimeError("Loop limit must be a nonnegative integer.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                // Leave the valid budget on the stack as the hidden local.
+                break;
             }
         }
     }

@@ -1,0 +1,81 @@
+print "== while and nested scope cleanup ==";
+
+{
+  var i = 0;
+  var total = 0;
+
+  while (i < 5) {
+    var bodyLocal = i;
+    i = i + 1;
+
+    {
+      var nestedLocal = bodyLocal;
+
+      if (i == 3) continue;
+
+      total = total + nestedLocal;
+    }
+  }
+
+  print i;
+  print total;
+
+  var after = "stack balanced";
+  print after;
+}
+
+print "== for increment ==";
+
+{
+  var iterations = 0;
+
+  for (var i = 0; i < 4; i = i + 1) {
+    var temporary = i;
+    iterations = iterations + 1;
+
+    if (i < 2) continue;
+
+    print temporary;
+  }
+
+  print iterations;
+}
+
+print "== for without increment ==";
+
+{
+  var i = 0;
+
+  for (; i < 4;) {
+    i = i + 1;
+
+    if (i == 2) continue;
+
+    print i;
+  }
+}
+
+print "== nearest enclosing loop ==";
+
+for (var outer = 0; outer < 2; outer = outer + 1) {
+  for (var inner = 0; inner < 3; inner = inner + 1) {
+    if (inner == 1) continue;
+
+    print outer * 10 + inner;
+  }
+}
+
+print "== continue inside switch ==";
+
+for (var i = 0; i < 3; i = i + 1) {
+  switch (i) {
+    case 1:
+      continue;
+    default:
+      print i;
+  }
+
+  print "after switch";
+}
+
+print "DONE";
