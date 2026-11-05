@@ -24,6 +24,27 @@ static Obj* allocateObject(size_t size , ObjType type) \
     return object;
 }
 
+
+/*Allocate memory and initialize the object’s header so that the VM knows what type of object it is.
+ *Instead of passing in arguments to initialize the function like we did with ObjString,
+ *we set the function up in a sort of blank state—zero arity, no name, and no code.
+ *That will get filled in later after the function is created*/
+ObjFunction* newFunction()
+{
+    ObjFunction* function = ALLOCATE_OBJ(ObjFunction, OBJ_FUNCTION);
+    function->arity = 0;
+    function->name = NULL;
+    initChunk(&function->chunk);
+    return function;
+}
+
+ObjNative* newNative(NativeFn function)
+{
+    ObjNative* native = ALLOCATE_OBJ(ObjNative, OBJ_NATIVE);
+    native->function = function;
+    return native;
+}
+
 //creates a new ObjString on the heap and then initializes its fields.
 // Original version of object string.
 static ObjString* allocateString(char* chars, int length, uint32_t hash)
@@ -113,6 +134,17 @@ ObjString* copyString(const char* chars, int length)
     return allocateString(heapChars, length, hash);
 }
 
+static void printFunction(ObjFunction* function)
+{
+    if (function->name == NULL)
+    {
+        printf("<script>");
+        return;
+    }
+
+    printf("<fn %s>", function->name->chars);
+}
+
 /*
 //provides flexible array support, challenge Question 1, Chapter 19.
 ObjString* copyString(const char* chars, int length)
@@ -160,6 +192,12 @@ void printObject(Value value)
 {
     switch (OBJ_TYPE(value))
     {
+        case OBJ_FUNCTION:
+            printFunction(AS_FUNCTION(value));
+            break;
+        case OBJ_NATIVE:
+            printf("<native fn>");
+            break;
         case OBJ_STRING:
             printf("%s", AS_CSTRING(value));
             break;

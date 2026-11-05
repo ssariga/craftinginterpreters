@@ -346,6 +346,16 @@ static void freeObject(Obj* object)
 {
   switch (object->type)
   {
+    case OBJ_FUNCTION:
+    {
+      ObjFunction* function = (ObjFunction*)object;
+      freeChunk(&function->chunk);
+      FREE(ObjFunction, object);
+      break;
+    }
+    case OBJ_NATIVE:
+      FREE(ObjNative, object);
+      break;
     //Original version of the OBJ_STRING case
     case OBJ_STRING:
     {
