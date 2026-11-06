@@ -1,0 +1,11 @@
+fun benchNative(count) {
+  for (var i = 0; i < count; i = i + 1) {
+    clock();
+  }
+}
+
+var start = clock();
+benchNative(1000000);
+var elapsed = clock() - start;
+
+print elapsed;

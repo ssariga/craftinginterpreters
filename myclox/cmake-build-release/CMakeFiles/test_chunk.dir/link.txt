@@ -1,0 +1,1 @@
+/usr/bin/cc -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/test_chunk.dir/link.d CMakeFiles/test_chunk.dir/test_chunk.c.o CMakeFiles/test_chunk.dir/chunk.c.o CMakeFiles/test_chunk.dir/memory.c.o CMakeFiles/test_chunk.dir/value.c.o CMakeFiles/test_chunk.dir/debug.c.o CMakeFiles/test_chunk.dir/vm.c.o -o test_chunk

@@ -1,0 +1,6 @@
+print sqrt(25);
+print sqrt(0);
+print sqrt(2.25);
+
+print sqrt("hello");
+print "should not execute";

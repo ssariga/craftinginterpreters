@@ -1,0 +1,9 @@
+/home/sammy/4080/craftinginterpreters/myclox/cmake-build-release/CMakeFiles/myclox.dir
+/home/sammy/4080/craftinginterpreters/myclox/cmake-build-release/CMakeFiles/test_chunk.dir
+/home/sammy/4080/craftinginterpreters/myclox/cmake-build-release/CMakeFiles/benchmark_vm.dir
+/home/sammy/4080/craftinginterpreters/myclox/cmake-build-release/CMakeFiles/test_scanner.dir
+/home/sammy/4080/craftinginterpreters/myclox/cmake-build-release/CMakeFiles/interpolation_test.dir
+/home/sammy/4080/craftinginterpreters/myclox/cmake-build-release/CMakeFiles/conditional_test.dir
+/home/sammy/4080/craftinginterpreters/myclox/cmake-build-release/CMakeFiles/dynamic_test.dir
+/home/sammy/4080/craftinginterpreters/myclox/cmake-build-release/CMakeFiles/edit_cache.dir
+/home/sammy/4080/craftinginterpreters/myclox/cmake-build-release/CMakeFiles/rebuild_cache.dir

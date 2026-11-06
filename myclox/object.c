@@ -38,10 +38,17 @@ ObjFunction* newFunction()
     return function;
 }
 
-ObjNative* newNative(NativeFn function)
+//Modified newNative for arity support,
+//challenge question 2, chapter 24.
+ObjNative* newNative(NativeFn function, int arity)
 {
     ObjNative* native = ALLOCATE_OBJ(ObjNative, OBJ_NATIVE);
+
+    // Store the C function that implements this native.
     native->function = function;
+
+    // Store the argument count required before invoking it.
+    native -> arity= arity;
     return native;
 }
 

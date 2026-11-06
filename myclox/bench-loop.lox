@@ -1,0 +1,16 @@
+fun sumLoop(limit) {
+  var sum = 0;
+
+  for (var i = 0; i < limit; i = i + 1) {
+    sum = sum + i;
+  }
+
+  return sum;
+}
+
+var start = clock();
+var result = sumLoop(5000000);
+var elapsed = clock() - start;
+
+print result == 12499997500000;
+print elapsed;

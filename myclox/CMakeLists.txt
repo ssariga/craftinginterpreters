@@ -17,6 +17,7 @@ add_executable(myclox
         table.c
 )
 
+target_link_libraries(myclox PRIVATE m)
 
 add_executable(test_chunk
         test_chunk.c

@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/sammy/4080/craftinginterpreters/myclox/cmake-build-release/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

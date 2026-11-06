@@ -1,0 +1,12 @@
+//tests abs() native function.
+
+var target = 20;
+
+fun distanceFromTarget(value)
+{
+  return abs(value - target);
+}
+
+print distanceFromTarget(13);
+print distanceFromTarget(27);
+print distanceFromTarget(20);

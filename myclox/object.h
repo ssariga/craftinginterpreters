@@ -36,12 +36,27 @@ typedef struct {
 } ObjFunction;
 
 
-typedef Value (*NativeFn)(int argCount, Value* args);
+/*
+ *Challenge Question 3, Chapter 24.
+ * Returns true on success and writes the Lox return value to *result.
+ * Returns false on failure and writes an error message to *error.
+ *
+ * The error message must remain valid after the native returns.
+ * String literals satisfy that requirement.
+ */
+typedef bool (*NativeFn)
+(
+    int argCount,
+    Value* args,
+    Value* result,
+    const char** error
+);
 
 typedef struct
 {
     Obj obj;
     NativeFn function;
+    int arity;  // Number of arguments this native function expects. Challenge Question 2, chapter 24.
 } ObjNative;
 
 /*
@@ -68,7 +83,7 @@ struct ObjString {
 
 
 ObjFunction* newFunction();
-ObjNative* newNative(NativeFn function);
+ObjNative* newNative(NativeFn function, int arity); // modified newNative, for arity support, challenge question 2, chapter 24.
 
 /*
 * Before: two allocations

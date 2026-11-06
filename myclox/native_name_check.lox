@@ -1,0 +1,21 @@
+//tests lengthNative() method.
+fun checkName(name)
+{
+  var size = length(name);
+
+  if (size < 3)
+  {
+    print "Name is too short.";
+  } else if (size > 12)
+  {
+    print "Name is too long.";
+  }
+  else
+  {
+    print "Name length accepted.";
+  }
+}
+
+checkName("Al");
+checkName("Kolibri");
+checkName("ThisNameIsTooLong");

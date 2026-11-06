@@ -1,0 +1,1 @@
+/usr/bin/cc -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/interpolation_test.dir/link.d CMakeFiles/interpolation_test.dir/interpolation_test.c.o CMakeFiles/interpolation_test.dir/scanner.c.o -o interpolation_test

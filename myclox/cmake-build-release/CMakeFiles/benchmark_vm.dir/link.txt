@@ -1,0 +1,1 @@
+/usr/bin/cc -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/benchmark_vm.dir/link.d CMakeFiles/benchmark_vm.dir/benchmark_vm.c.o CMakeFiles/benchmark_vm.dir/chunk.c.o CMakeFiles/benchmark_vm.dir/memory.c.o CMakeFiles/benchmark_vm.dir/value.c.o CMakeFiles/benchmark_vm.dir/debug.c.o CMakeFiles/benchmark_vm.dir/vm.c.o -o benchmark_vm

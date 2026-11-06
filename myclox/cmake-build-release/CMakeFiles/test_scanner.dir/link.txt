@@ -1,0 +1,1 @@
+/usr/bin/cc -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/test_scanner.dir/link.d CMakeFiles/test_scanner.dir/scanner_test.c.o CMakeFiles/test_scanner.dir/scanner.c.o -o test_scanner

@@ -1,0 +1,15 @@
+//tests native mod() function implementation.
+for (var number = 1; number <= 6; number = number + 1)
+{
+
+  print number;
+
+  if (mod(number, 2) == 0)
+  {
+    print "even";
+  }
+  else
+  {
+    print "odd";
+  }
+}
