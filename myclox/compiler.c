@@ -53,7 +53,14 @@ typedef struct
 typedef struct {
     Token name;
     int depth;
+    bool isCaptured;
 } Local;
+
+typedef struct
+{
+    uint8_t index;
+    bool isLocal;
+} Upvalue;
 
 //lets the compiler tell
 //when it’s compiling top-level code versus the body of a function
@@ -70,6 +77,7 @@ typedef struct Compiler
     FunctionType type;
     Local locals[UINT8_COUNT];
     int localCount;
+    Upvalue upvalues[UINT8_COUNT];
     int scopeDepth;
 } Compiler;
 
@@ -228,6 +236,7 @@ static void initCompiler(Compiler* compiler, FunctionType type)
 
     Local* local = &current->locals[current->localCount++];
     local->depth = 0;
+    local->isCaptured = false;
     local->name.start = "";
     local->name.length = 0;
 }
@@ -280,7 +289,14 @@ static void endScope()
 
     while (current->localCount > 0 &&current->locals[current->localCount - 1].depth > current->scopeDepth)
     {
-        emitByte(OP_POP);
+        if (current->locals[current->localCount - 1].isCaptured)
+        {
+            emitByte(OP_CLOSE_UPVALUE);
+        }
+        else
+        {
+            emitByte(OP_POP);
+        }
         current->localCount--;
     }
 }
@@ -330,6 +346,58 @@ static int resolveLocal(Compiler* compiler, Token* name)
 
     return -1;
 }
+
+static int addUpvalue(Compiler* compiler, uint8_t index, bool isLocal)
+{
+    int upvalueCount = compiler->function->upvalueCount;
+
+    for (int i = 0; i < upvalueCount; i++)
+    {
+        Upvalue* upvalue = &compiler->upvalues[i];
+        if (upvalue->index == index && upvalue->isLocal == isLocal)
+        {
+            return i;
+        }
+    }
+
+    if (upvalueCount == UINT8_COUNT)
+    {
+        error("Too many closure variables in function.");
+        return 0;
+    }
+    compiler->upvalues[upvalueCount].isLocal = isLocal;
+    compiler->upvalues[upvalueCount].index = index;
+    return compiler->function->upvalueCount++;
+}
+
+
+/*call this after failing to resolve a local variable in the current function’s scope,
+ *so we know the variable isn’t in the current compiler.
+ *Recall that Compiler stores a pointer to the Compiler for the enclosing function,
+ *and these pointers form a linked chain that goes all the way to the root Compiler
+ *for the top-level code. Thus, if the enclosing Compiler is NULL,
+ *we know we’ve reached the outermost function without finding a local variable.*/
+
+static int resolveUpvalue(Compiler* compiler, Token* name)
+{
+    if (compiler->enclosing == NULL) return -1;
+
+    int local = resolveLocal(compiler->enclosing, name);
+    if (local != -1) {
+        compiler->enclosing->locals[local].isCaptured = true;
+        return addUpvalue(compiler, (uint8_t)local, true);
+    }
+
+    int upvalue = resolveUpvalue(compiler->enclosing, name);
+
+    if (upvalue != -1)
+    {
+        return addUpvalue(compiler, (uint8_t)upvalue, false);
+    }
+
+    return -1;
+}
+
 // compiler needs to remember that the variable exists.
 //This initializes the next available Local in the compiler’s array of variables.
 //It stores the variable’s name and the depth of the scope that owns the variable.
@@ -346,6 +414,7 @@ static void addLocal(Token name)
     local->name = name;
     // Keep it uninitialized until its initializer is compiled.
     local->depth = -1;
+    local->isCaptured = false;
 
 }
 
@@ -514,7 +583,13 @@ static void function(FunctionType type)
     block();
 
     ObjFunction* function = endCompiler();
-    emitBytes(OP_CONSTANT, makeConstant(OBJ_VAL(function)));
+    emitBytes(OP_CLOSURE, makeConstant(OBJ_VAL(function)));
+
+    for (int i = 0; i < function->upvalueCount; i++)
+    {
+        emitByte(compiler.upvalues[i].isLocal ? 1 : 0);
+        emitByte(compiler.upvalues[i].index);
+    }
 }
 
 static void funDeclaration()
@@ -806,6 +881,11 @@ static void namedVariable(Token name, bool canAssign)
     {
         getOp = OP_GET_LOCAL;
         setOp = OP_SET_LOCAL;
+    }
+    else if ((arg = resolveUpvalue(current, &name)) != -1)
+    {
+        getOp = OP_GET_UPVALUE;
+        setOp = OP_SET_UPVALUE;
     }
     else
     {

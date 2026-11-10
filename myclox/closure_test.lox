@@ -1,0 +1,189 @@
+var passed = 0;
+var failed = 0;
+
+fun check(name, actual, expected) {
+  if (actual == expected) {
+    print "PASS: " + name;
+    passed = passed + 1;
+  } else {
+    print "FAIL: " + name;
+    print "  Expected:";
+    print expected;
+    print "  Actual:";
+    print actual;
+    failed = failed + 1;
+  }
+}
+
+// 1. Ordinary function calls should still work.
+fun add(a, b) {
+  return a + b;
+}
+
+check("ordinary function call", add(2, 3), 5);
+
+// 2. Read a captured local while its enclosing function is active.
+fun testOpenCapture() {
+  var message = "still on stack";
+
+  fun read() {
+    return message;
+  }
+
+  check("capture before outer returns", read(), "still on stack");
+}
+
+testOpenCapture();
+
+// 3. Read a captured local after its enclosing function returns.
+fun makeGreeting() {
+  var message = "hello from a closure";
+
+  fun greet() {
+    return message;
+  }
+
+  return greet;
+}
+
+var greeting = makeGreeting();
+check("capture after outer returns",
+      greeting(), "hello from a closure");
+
+// 4. Mutate a captured variable and preserve it between calls.
+fun makeCounter(start) {
+  var count = start;
+
+  fun increment() {
+    count = count + 1;
+    return count;
+  }
+
+  return increment;
+}
+
+var counterA = makeCounter(0);
+check("counter first call", counterA(), 1);
+check("counter second call", counterA(), 2);
+
+// 5. Separate calls must create independent captured state.
+var counterB = makeCounter(100);
+check("independent counter", counterB(), 101);
+check("original counter keeps its state", counterA(), 3);
+
+// 6. Two closures capturing the same local must share its state.
+var sharedRead;
+var sharedIncrement;
+
+fun makeSharedClosures() {
+  var value = 10;
+
+  fun read() {
+    return value;
+  }
+
+  fun increment() {
+    value = value + 1;
+  }
+
+  sharedRead = read;
+  sharedIncrement = increment;
+
+  // Test shared state while the local is still on the stack.
+  increment();
+  check("shared state before outer returns", read(), 11);
+}
+
+makeSharedClosures();
+
+check("shared state after outer returns", sharedRead(), 11);
+sharedIncrement();
+check("shared mutation after outer returns", sharedRead(), 12);
+
+// 7. Capture through an intermediate function.
+// middle() does not directly read message, but inner() needs it.
+fun outer() {
+  var message = "captured through middle";
+
+  fun middle() {
+    fun inner() {
+      return message;
+    }
+
+    return inner;
+  }
+
+  return middle;
+}
+
+var middleClosure = outer();
+var innerClosure = middleClosure();
+
+check("capture through intermediate function",
+      innerClosure(), "captured through middle");
+
+// 8. Close a captured variable when a block ends,
+// not just when a function returns.
+fun testBlockCapture() {
+  var saved;
+
+  {
+    var text = "saved from block";
+
+    fun readText() {
+      return text;
+    }
+
+    saved = readText;
+  }
+
+  // Encourage reuse of the stack slots from the ended block.
+  {
+    var replacement = "replacement value";
+    check("block capture survives stack reuse",
+          saved(), "saved from block");
+  }
+
+  return saved;
+}
+
+var blockClosure = testBlockCapture();
+
+check("block capture survives function return",
+      blockClosure(), "saved from block");
+
+// 9. Capturing a local must not accidentally resolve to a global.
+var label = "global";
+
+fun makeLocalReader() {
+  var label = "local";
+
+  fun read() {
+    return label;
+  }
+
+  return read;
+}
+
+var localReader = makeLocalReader();
+
+check("captured local shadows global", localReader(), "local");
+check("global remains unchanged", label, "global");
+
+// 10. Local recursion exercises capture of a local function name.
+fun runLocalRecursion() {
+  fun factorial(n) {
+    if (n <= 1) return 1;
+    return n * factorial(n - 1);
+  }
+
+  return factorial(5);
+}
+
+check("local recursive function", runLocalRecursion(), 120);
+
+print "--- Summary ---";
+print "Passed:";
+print passed;
+print "Failed:";
+print failed;
