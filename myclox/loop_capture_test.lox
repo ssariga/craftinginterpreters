@@ -1,0 +1,29 @@
+//Test program for loop capturing
+//Challenge Question 2, Chapter 25.
+var first;
+var second;
+
+fun makeClosures()
+{
+    for (var i = 1; i <= 2; i = i + 1)
+    {
+        fun read()
+        {
+            return i;
+        }
+
+        if (first == nil)
+        {
+            first = read;
+        }
+        else
+        {
+            second = read;
+        }
+    }
+}
+
+makeClosures();
+
+print first(); //should print 1
+print second(); //should print 2.

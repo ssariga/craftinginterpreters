@@ -559,8 +559,7 @@ static void block()
 
 }
 
-static void function(FunctionType type)
-{
+static void function(FunctionType type) {
     Compiler compiler;
     initCompiler(&compiler, type);
     beginScope();
@@ -583,15 +582,30 @@ static void function(FunctionType type)
     block();
 
     ObjFunction* function = endCompiler();
-    emitBytes(OP_CLOSURE, makeConstant(OBJ_VAL(function)));
 
-    for (int i = 0; i < function->upvalueCount; i++)
+    uint8_t functionConstant = makeConstant(OBJ_VAL(function));
+
+
+    // Emit OP_CONSTANT for plain functions
+    //Challenge Question 1, Chapter 25.
+    if (function->upvalueCount > 0)
     {
-        emitByte(compiler.upvalues[i].isLocal ? 1 : 0);
-        emitByte(compiler.upvalues[i].index);
+        // This function captures at least one variable,
+        // so it needs an ObjClosure.
+        emitBytes(OP_CLOSURE, functionConstant);
+
+        for (int i = 0; i < function->upvalueCount; i++)
+        {
+            emitByte(compiler.upvalues[i].isLocal ? 1 : 0);
+            emitByte(compiler.upvalues[i].index);
+        }
+    }
+    else
+    {
+        // No captures, so leave the plain ObjFunction on the stack.
+        emitBytes(OP_CONSTANT, functionConstant);
     }
 }
-
 static void funDeclaration()
 {
     uint8_t global = parseVariable("Expect function name.");
@@ -625,16 +639,31 @@ static void expressionStatement()
     emitByte(OP_POP);
 }
 
+
+//modified forStatement
+//Provides support for handling loop closures.
 static void forStatement()
 {
     beginScope();
     consume(TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
+
+
+    // Only a variable declared in the initializer gets a fresh
+    // binding for each iteration. -1 means there is no such variable.
+    int loopVariable = -1;
+
     if (match(TOKEN_SEMICOLON))
     {
         // No initializer.
     } else if (match(TOKEN_VAR))
     {
+        int previousLocalCount = current->localCount;
         varDeclaration();
+
+        if (current->localCount > previousLocalCount)
+        {
+            loopVariable = current->localCount - 1;
+        }
     } else
     {
         expressionStatement();
@@ -666,6 +695,13 @@ static void forStatement()
     }
 
     statement();
+    // The body has now been compiled, so we know whether any
+    // nested function captured the initializer variable.
+    //Challenge Question 2, Chapter 25.
+    if (loopVariable != -1 && current->locals[loopVariable].isCaptured)
+    {
+        emitBytes(OP_CLOSE_LOOP, (uint8_t)loopVariable);
+    }
     emitLoop(loopStart);
 
     if (exitJump != -1)

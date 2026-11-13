@@ -1,0 +1,18 @@
+//Every function here is declared at global scope and captures nothing
+//For non closure benchmarking (Challenge Question 1, Chapter 25)
+
+fun fib(n)
+{
+  if (n < 2) return n;
+  return fib(n - 2) + fib(n - 1);
+}
+
+var start = clock();
+
+for (var i = 0; i < 20; i = i + 1)
+{
+  fib(20);
+}
+
+var end = clock();
+print end - start;

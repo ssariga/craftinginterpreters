@@ -38,6 +38,8 @@ typedef enum
     OP_CALL,
     OP_CLOSURE,
     OP_CLOSE_UPVALUE,
+    OP_CLOSE_LOOP, // Closes a captured loop variable without removing its stack value.
+    //Challenge Question 2, Chapter 25.
     OP_RETURN,
 } OpCode;
 

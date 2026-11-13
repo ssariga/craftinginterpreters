@@ -1,0 +1,29 @@
+ //repeatedly creates closures and mutates captured state,
+ //so it exercises OP_CLOSURE, captureUpvalue(),
+ //OP_SET_UPVALUE, and closing behavior.
+ //benchmark for Challenge Question 1, Chapter 25.
+fun makeCounter(start)
+{
+  var count = start;
+
+  fun increment()
+  {
+    count = count + 1;
+    return count;
+  }
+
+  return increment;
+}
+
+var start = clock();
+
+for (var i = 0; i < 10000; i = i + 1)
+{
+  var counter = makeCounter(0);
+  counter();
+  counter();
+  counter();
+}
+
+var end = clock();
+print end - start;

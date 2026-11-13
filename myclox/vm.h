@@ -10,7 +10,8 @@
 
 typedef struct
 {
-    ObjClosure* closure;
+    //Allows for stored value inspection, challenge question 1, Chapter 25.
+    Obj* function; // Either an ObjFunction or an ObjClosure.
     uint8_t* ip;
     Value* slots;
 } CallFrame;

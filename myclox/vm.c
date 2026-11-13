@@ -23,6 +23,21 @@ static void resetStack()
     vm.openUpvalues = NULL;
 }
 
+// Returns the underlying ObjFunction for a call frame.
+// A frame may contain either a plain ObjFunction or an ObjClosure,
+// so this helper inspects the object type and removes the indirection
+// when the frame holds a closure.
+//Challenge Question 1, Chapter 25.// A frame may hold either an ObjFunction or an ObjClosure,
+// so use getFrameFunction() to retrieve the function being executed.
+static inline ObjFunction* getFrameFunction(CallFrame* frame)
+{
+    if (frame->function->type == OBJ_FUNCTION)
+    {
+        return (ObjFunction*)frame->function;
+    }
+
+    return ((ObjClosure*)frame->function)->function;
+}
 
 static Value clockNative(int argCount, Value* args) {
     return NUMBER_VAL((double)clock() / CLOCKS_PER_SEC);
@@ -38,7 +53,11 @@ static void runtimeError(const char* format, ...)
     for (int i = vm.frameCount - 1; i >= 0; i--)
     {
         CallFrame* frame = &vm.frames[i];
-        ObjFunction* function = frame->closure->function;
+
+        // A frame may hold either an ObjFunction or an ObjClosure,
+        // so use getFrameFunction() to retrieve the function being executed.
+        //Challenge Question 1, Chapter 25.
+        ObjFunction* function = getFrameFunction(frame);
         size_t instruction = frame->ip - function->chunk.code - 1;
         int line =getLine(&function->chunk,(int)instruction);
         fprintf(stderr, "[line %d] in ", line);
@@ -136,6 +155,47 @@ void push(Value value)
                 (size_t)(vm.frames[i].slots - vm.stack);
         }
 
+        // Save open upvalue positions before the stack can move.
+        //Added to fix method to help Challenge Question 3, chapter 25.
+        size_t upvalueCount = 0;
+
+        for (ObjUpvalue* upvalue = vm.openUpvalues;
+             upvalue != NULL;
+             upvalue = upvalue->next)
+        {
+            upvalueCount++;
+        }
+
+        size_t* upvalueOffsets = NULL;
+
+        if (upvalueCount > 0)
+        {
+            if (upvalueCount > SIZE_MAX / sizeof(size_t))
+            {
+                fprintf(stderr, "Too many open upvalues.\n");
+                exit(EXIT_FAILURE);
+            }
+
+            upvalueOffsets = malloc(upvalueCount * sizeof(size_t));
+
+            if (upvalueOffsets == NULL)
+            {
+                fprintf(stderr, "Could not save open upvalue positions.\n");
+                exit(EXIT_FAILURE);
+            }
+
+            size_t index = 0;
+
+            for (ObjUpvalue* upvalue = vm.openUpvalues;
+                 upvalue != NULL;
+                 upvalue = upvalue->next)
+            {
+                upvalueOffsets[index++] =
+                    (size_t)(upvalue->location - vm.stack);
+            }
+        }
+
+        //End of additions to fix method to help Challenge Question 3, chapter 25.
         vm.stack = reallocate(
             vm.stack,
             oldCapacity * sizeof(Value),
@@ -150,6 +210,22 @@ void push(Value value)
         {
             vm.frames[i].slots = vm.stack + frameOffsets[i];
         }
+
+        // Restore open upvalue pointers into the resized stack.
+        //Added to fix method, challenge Question 3, chapter 25.
+        size_t upvalueIndex = 0;
+
+        for (ObjUpvalue* upvalue = vm.openUpvalues;
+             upvalue != NULL;
+             upvalue = upvalue->next)
+        {
+            upvalue->location =
+                vm.stack + upvalueOffsets[upvalueIndex++];
+        }
+
+        //End of additions to fix method to help Challenge Question 3, chapter 25.
+        
+        free(upvalueOffsets);
     }
 
     *vm.stackTop = value;
@@ -180,15 +256,19 @@ static Value peek(int distance)
     return vm.stackTop[-1 - distance];
 }
 
-/*simply initializes the next CallFrame on the stack.
- *It stores a pointer to the function being called and points the frame’s ip to the
- *beginning of the function’s bytecode.
- *Finally, it sets up the slots pointer to give the frame its window into the stack. */
-static bool call(ObjClosure* closure, int argCount)
+// Initializes a call frame for either a plain ObjFunction or an ObjClosure.
+// The callee is stored as an Obj* because its concrete type is determined
+// at runtime. The underlying ObjFunction supplies the bytecode, arity,
+// and initial instruction pointer.
+//Challenge Question 1, Chapter 25.
+static bool call(Obj* callee,ObjFunction* function,int argCount)
 {
-    if (argCount != closure->function->arity)
+    if (argCount != function->arity)
     {
-        runtimeError("Expected %d arguments but got %d.", closure->function->arity, argCount);
+        runtimeError(
+            "Expected %d arguments but got %d.",
+            function->arity,
+            argCount);
         return false;
     }
 
@@ -199,10 +279,26 @@ static bool call(ObjClosure* closure, int argCount)
     }
 
     CallFrame* frame = &vm.frames[vm.frameCount++];
-    frame->closure = closure;
-    frame->ip = closure->function->chunk.code;
+    frame->function = callee;
+    frame->ip = function->chunk.code;
     frame->slots = vm.stackTop - argCount - 1;
+
     return true;
+}
+
+// Creates a call frame for a function that captures enclosing variables.
+//Challenge Question 1, Chapter 25.
+static bool callClosure(ObjClosure* closure, int argCount)
+{
+    return call((Obj*)closure, closure->function, argCount);
+}
+
+// Creates a call frame for a function with no captured variables.
+// No ObjClosure is allocated for this case.
+//Challenge Question 1, Chapter 25.
+static bool callFunction(ObjFunction* function, int argCount)
+{
+    return call((Obj*)function, function, argCount);
 }
 
 static bool callValue(Value callee, int argCount)
@@ -211,8 +307,14 @@ static bool callValue(Value callee, int argCount)
     {
         switch (OBJ_TYPE(callee))
         {
+            // Both plain functions and closures are callable.
+            // Plain functions avoid closure allocation; closures retain upvalues.
+            //Challenge Question 1, Chapter 25.
             case OBJ_CLOSURE:
-                return call(AS_CLOSURE(callee), argCount);
+                return callClosure(AS_CLOSURE(callee), argCount);
+
+            case OBJ_FUNCTION:
+                return callFunction(AS_FUNCTION(callee), argCount);
             case OBJ_NATIVE:
             {
                 NativeFn native = AS_NATIVE(callee);
@@ -358,8 +460,9 @@ static InterpretResult run()
     (frame->ip += 2, \
     (uint16_t)((frame->ip[-2] << 8) | frame->ip[-1]))
 
+//replace frame --> closure reference, challenge Question 1, Chapter 25
 #define READ_CONSTANT() \
-    (frame->closure->function->chunk.constants.values[READ_BYTE()])
+    (getFrameFunction(frame)->chunk.constants.values[READ_BYTE()])
 
 
 #define READ_STRING() AS_STRING(READ_CONSTANT())
@@ -405,12 +508,17 @@ static InterpretResult run()
         }
         printf("\n");
 
-        disassembleInstruction(&frame->closure->function->chunk,
-       (int)(frame->ip - frame->closure->function->chunk.code));
+        //replace frame --> closure reference, challenge Question 1, Chapter 25
+        disassembleInstruction(&getFrameFunction(frame)->chunk,
+        (int)(frame->ip - getFrameFunction(frame)->chunk.code));
 
         #endif
 
         uint8_t instruction;
+
+        //modified OP_GET_UPVALUE, OP_SET_UPVALUE,  OP_Closure,
+        //To replace frame --> closure references, challenge Question 1, Chapter 25
+
         switch (instruction = READ_BYTE())
         {
             case OP_CONSTANT:
@@ -466,13 +574,15 @@ static InterpretResult run()
             case OP_GET_UPVALUE:
             {
                 uint8_t slot = READ_BYTE();
-                push(*frame->closure->upvalues[slot]->location);
+                ObjClosure* closure = (ObjClosure*)frame->function;
+                push(*closure->upvalues[slot]->location);
                 break;
             }
             case OP_SET_UPVALUE:
             {
                 uint8_t slot = READ_BYTE();
-                *frame->closure->upvalues[slot]->location = peek(0);
+                ObjClosure* closure = (ObjClosure*)frame->function;
+                *closure->upvalues[slot]->location = peek(0);
                 break;
             }
             case OP_EQUAL:
@@ -573,7 +683,7 @@ static InterpretResult run()
                     }
                     else
                     {
-                        closure->upvalues[i] = frame->closure->upvalues[index];
+                        closure->upvalues[i] = ((ObjClosure*)frame->function)->upvalues[index];
                     }
                 }
                 break;
@@ -582,6 +692,15 @@ static InterpretResult run()
                 closeUpvalues(vm.stackTop - 1);
                 pop();
                 break;
+            case OP_CLOSE_LOOP: //Added for challenge Question 2, chapter 25.
+            {
+                uint8_t slot = READ_BYTE();
+
+                // Preserve the current iteration's captured variable.
+                // Leave its stack value available for the increment.
+                closeUpvalues(frame->slots + slot);
+                break;
+            }
             case OP_RETURN:
             {
                 // Exit interpreter.
@@ -609,16 +728,16 @@ static InterpretResult run()
 #undef BINARY_OP
 }
 
+//The top-level script has no enclosing function,
+//so it cannot capture upvalues. It can be called directly as an ObjFunction
+//Challenge Question 1, Chapter 25.
 InterpretResult interpret(const char* source)
 {
     ObjFunction* function = compile(source);
     if (function == NULL) return INTERPRET_COMPILE_ERROR;
 
     push(OBJ_VAL(function));
-    ObjClosure* closure = newClosure(function);
-    pop();
-    push(OBJ_VAL(closure));
-    call(closure, 0);
+    callFunction(function, 0);
 
     return run();
 }

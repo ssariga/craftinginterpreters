@@ -1,0 +1,91 @@
+// Challenge Question 3, Chapter 25, :
+// Model two-dimensional vector objects using closures.
+//
+// Each call to makeVector() creates independent coordinates.
+// The returned function provides access to the vector's methods.
+fun makeVector(x, y)
+{
+    // Return this vector's x coordinate.
+    fun getX()
+    {
+        return x;
+    }
+
+    // Return this vector's y coordinate.
+    fun getY()
+    {
+        return y;
+    }
+
+    // Add another vector to this vector.
+    // Return a new vector without modifying either original.
+    fun add(other)
+    {
+        var otherX = other("x")();
+        var otherY = other("y")();
+
+        return makeVector(x + otherX, y + otherY);
+    }
+
+    // Select a method by name.
+    // Returning the function lets the caller invoke it afterward.
+    fun selectMethod(name)
+    {
+        if (name == "x")
+        {
+            return getX;
+        }
+
+        if (name == "y")
+        {
+            return getY;
+        }
+
+        if (name == "add")
+        {
+            return add;
+        }
+
+        print "Unknown vector method.";
+        return nil;
+    }
+
+    // The returned closure acts as the vector object.
+    // It retains access to the methods and their captured state.
+    return selectMethod;
+}
+
+
+// Construct two independent vectors.
+var first = makeVector(2, 3);
+var second = makeVector(4, 5);
+
+// Access the first vector's coordinates.
+print "First vector:";
+print first("x")();
+print first("y")();
+
+// Access the second vector's coordinates.
+print "Second vector:";
+print second("x")();
+print second("y")();
+
+// Add the vectors to produce a third vector.
+// (2, 3) + (4, 5) = (6, 8)
+var sum = first("add")(second);
+
+print "Sum:";
+print sum("x")();
+print sum("y")();
+
+// Confirm addition did not modify the first vector.
+print "First vector is unchanged:";
+print first("x")();
+print first("y")();
+
+// A method can also be saved and called later.
+// It remains associated with the vector that created it.
+var savedGetX = first("x");
+
+print "Saved x method:";
+print savedGetX();
