@@ -34,6 +34,9 @@
 /*Use for all dynamic memory management in clox—allocating memory,
  *freeing it, and changing the size of an existing allocation.  */
 void* reallocate(void* pointer, size_t oldSize, size_t newSize);
+void markObject(Obj* object);
+void markValue(Value value);
+void collectGarbage();
 void freeObjects();
 void initMemory(size_t heapSize); // Challenge question 3, Chapter 14
 #endif

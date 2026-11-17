@@ -23,11 +23,18 @@ typedef struct
     //challenge question 3, chapter 15
     Value* stack;
     Value* stackTop;
+    Value pendingPush;
     Table globals;
     Table strings;
     size_t stackCapacity;
     ObjUpvalue* openUpvalues;
+
+    size_t bytesAllocated;
+    size_t nextGC;
     Obj* objects;
+    int grayCount;
+    int grayCapacity;
+    Obj** grayStack;
 } VM;
 
 typedef enum

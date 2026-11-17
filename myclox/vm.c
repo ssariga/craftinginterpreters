@@ -69,8 +69,23 @@ void initVM()
 {
     vm.stack = NULL;
     vm.stackCapacity = 0;
+    vm.pendingPush = NIL_VAL;
     resetStack();
     vm.objects = NULL;
+
+
+    //bytesAllocated: running total of the number of bytes of managed memory the VM has allocated.
+    //next GC: threshold that triggers the next collection.
+    //initialize them when the VM starts up.
+    vm.bytesAllocated = 0;
+    vm.nextGC = 1024 * 1024;
+
+
+    //initialize the gray objects.
+    vm.grayCount = 0;
+    vm.grayCapacity = 0;
+    vm.grayStack = NULL;
+
     initTable(&vm.globals);
     initTable(&vm.strings); //intialize the table.
 
@@ -136,6 +151,49 @@ void push(Value value)
                 (size_t)(vm.frames[i].slots - vm.stack);
         }
 
+
+        // Save open-upvalue positions while the old stack is still valid.
+        size_t upvalueCount = 0;
+
+        for (ObjUpvalue* upvalue = vm.openUpvalues;
+             upvalue != NULL;
+             upvalue = upvalue->next)
+        {
+            upvalueCount++;
+        }
+
+        size_t* upvalueOffsets = NULL;
+
+        if (upvalueCount > 0)
+        {
+            if (upvalueCount > SIZE_MAX / sizeof(size_t))
+            {
+                fprintf(stderr, "Too many open upvalues.\n");
+                exit(EXIT_FAILURE);
+            }
+
+            upvalueOffsets = malloc(upvalueCount * sizeof(size_t));
+
+            if (upvalueOffsets == NULL)
+            {
+                fprintf(stderr, "Could not save open upvalue positions.\n");
+                exit(EXIT_FAILURE);
+            }
+
+            size_t index = 0;
+
+            for (ObjUpvalue* upvalue = vm.openUpvalues;
+                 upvalue != NULL;
+                 upvalue = upvalue->next)
+            {
+                upvalueOffsets[index++] =
+                    (size_t)(upvalue->location - vm.stack);
+            }
+        }
+
+        // Protect the incoming value if resizing triggers garbage collection.
+        vm.pendingPush = value;
+
         vm.stack = reallocate(
             vm.stack,
             oldCapacity * sizeof(Value),
@@ -150,10 +208,27 @@ void push(Value value)
         {
             vm.frames[i].slots = vm.stack + frameOffsets[i];
         }
+
+        // Restore open-upvalue pointers into the new stack allocation.
+        size_t upvalueIndex = 0;
+
+        for (ObjUpvalue* upvalue = vm.openUpvalues;
+             upvalue != NULL;
+             upvalue = upvalue->next)
+        {
+            upvalue->location =
+                vm.stack + upvalueOffsets[upvalueIndex++];
+        }
+
+        free(upvalueOffsets);
+
     }
 
     *vm.stackTop = value;
     vm.stackTop++;
+
+    // The value is now rooted on the VM stack.
+    vm.pendingPush = NIL_VAL;
 }
 
 //adjusted for dynamic stack support, challenge question 3, chapter 15.
@@ -299,6 +374,8 @@ static void concatenate(void)
     ObjString* b = AS_STRING(peek(0));
     ObjString* a = AS_STRING(peek(1));
 
+
+
     int length = a->length + b->length;
 
     char* chars = ALLOCATE(char, length + 1);
@@ -308,6 +385,8 @@ static void concatenate(void)
     chars[length] = '\0';
 
     ObjString* result = takeString(chars, length);
+    pop();
+    pop();
     push(OBJ_VAL(result));
 
     //memcpy(result->chars,a->chars,(size_t)a->length);

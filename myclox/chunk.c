@@ -3,6 +3,8 @@
 
 #include "chunk.h"
 #include "memory.h"
+#include "vm.h"
+
 
 /*Initailizes the chunk */
 void initChunk(Chunk* chunk)
@@ -92,7 +94,10 @@ int getLine(const Chunk* chunk, int offset)
 
 int addConstant(Chunk* chunk, Value value)
 {
+    //push the constant onto the stack temporarily.
+    push(value);
     writeValueArray(&chunk->constants, value);
+    pop(); //Once the constant table contains the object, we pop it off the stack.
     return chunk->constants.count - 1;
 }
 

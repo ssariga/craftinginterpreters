@@ -1,0 +1,114 @@
+// Garbage Collector test
+// Tests baseline for GC.
+
+var passed = 0;
+var failed = 0;
+
+fun check(name, condition) {
+  if (condition) {
+    print "PASS: " + name;
+    passed = passed + 1;
+  } else {
+    print "FAIL: " + name;
+    failed = failed + 1;
+  }
+}
+
+// Create temporary strings and closures.
+// Once each iteration ends, its temporary values are no longer needed.
+fun makeGarbage() {
+  fun capture(value) {
+    fun read() {
+      return value;
+    }
+    return read;
+  }
+
+  for (var i = 0; i < 10; i = i + 1) {
+    var temporary = "temporary " + "string";
+    var unusedClosure = capture(temporary);
+  }
+}
+
+// 1. A dynamically created global string must survive collections.
+var globalText = "global " + "survives";
+
+makeGarbage();
+
+check("global string", globalText == "global survives");
+
+// 2. A local string must survive while its function is running.
+fun testLocal() {
+  var localText = "local " + "survives";
+
+  makeGarbage();
+
+  check("local string", localText == "local survives");
+}
+
+testLocal();
+
+// 3. Keep a captured variable alive while its defining function
+// is still running: the upvalue is open.
+fun makeReader() {
+  var message = "captured " + "survives";
+
+  fun read() {
+    return message;
+  }
+
+  makeGarbage();
+
+  check("open upvalue", read() == "captured survives");
+
+  return read;
+}
+
+var savedReader = makeReader();
+
+// 4. After makeReader() returns, the captured variable is stored
+// in a closed upvalue. The closure must keep it alive.
+makeGarbage();
+
+check("closed upvalue", savedReader() == "captured survives");
+
+// 5. Mutable captured state must also survive.
+fun makeCounter() {
+  var count = 0;
+
+  fun increment() {
+    count = count + 1;
+    return count;
+  }
+
+  return increment;
+}
+
+var counter = makeCounter();
+
+check("counter first call", counter() == 1);
+
+makeGarbage();
+
+check("counter after garbage", counter() == 2);
+
+// 6. Concatenation results must remain valid.
+var combined = ("left" + "-") + ("right" + "!");
+
+makeGarbage();
+
+check("string concatenation", combined == "left-right!");
+
+// Release objects previously held by globals, then allocate again.
+savedReader = nil;
+counter = nil;
+globalText = nil;
+combined = nil;
+
+makeGarbage();
+
+print "---";
+print "Passed:";
+print passed;
+print "Failed:";
+print failed;
