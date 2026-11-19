@@ -39,4 +39,22 @@ void markValue(Value value);
 void collectGarbage();
 void freeObjects();
 void initMemory(size_t heapSize); // Challenge question 3, Chapter 14
+
+
+
+//Challenge Question 3, Chapter 26
+// Record an additional owning reference to an object.
+//Defer freeing zero-count objects rather than freeing them directly inside pop().
+//Deferred reclamation lets us handle temporary references safely
+
+void retainObject(Obj* object);
+// Remove an owning reference without immediately freeing the object.
+void releaseObject(Obj* object);
+// Retain an object-containing Value; ignore non-object values.
+void retainValue(Value value);
+// Release an object-containing Value; ignore non-object values.
+void releaseValue(Value value);
+
+// Print cumulative collection totals for this process.
+void printGCStats(void);
 #endif

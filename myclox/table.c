@@ -12,12 +12,39 @@ void initTable(Table* table)
     table->count = 0;
     table->capacity = 0;
     table->entries = NULL;
+
+    //Challenge Question 3, Chapter 26
+    // Ordinary tables own their keys and values by default.
+    table->isWeak = false;
+
 }
 
 
+//Added ownership management
+//Challenge Question 3, Chapter 26
 void freeTable(Table* table)
 {
+
+    // Remember the table's ownership policy when resetting its storage.
+    bool wasWeak = table->isWeak;
+    if (!table->isWeak)
+    {
+        for (int i = 0; i < table->capacity; i++)
+        {
+            Entry* entry = &table->entries[i];
+
+            // Empty buckets and tombstones own nothing.
+            if (entry->key == NULL) continue;
+
+            // Drop the references owned by this live entry.
+            releaseObject((Obj*)entry->key);
+            releaseValue(entry->value);
+        }
+    }
+
     FREE_ARRAY(Entry, table->entries, table->capacity);
+    // Preserve whether this table is strong or weak.
+    table->isWeak = wasWeak;
     initTable(table);
 }
 
@@ -104,7 +131,8 @@ static void adjustCapacity(Table* table, int capacity)
 bool tableSet(Table* table, ObjString* key, Value value)
 {
 
-    if (table->count + 1 > table->capacity * TABLE_MAX_LOAD) {
+    if (table->count + 1 > table->capacity * TABLE_MAX_LOAD)
+    {
         int capacity = GROW_CAPACITY(table->capacity);
         adjustCapacity(table, capacity);
     }
@@ -113,6 +141,26 @@ bool tableSet(Table* table, ObjString* key, Value value)
 
     if (isNewKey && IS_NIL(entry->value))
         table->count++;
+
+
+    //Challenge Question 3, Chapter 26
+    if (!table->isWeak)
+    {
+        // Retain the incoming value before releasing the previous value.
+        // This also handles assigning an object back to the same entry.
+        retainValue(value);
+
+        if (isNewKey)
+        {
+            // A newly occupied entry adds one owning key reference.
+            retainObject((Obj*)key);
+        }
+        else
+        {
+            // The existing key remains owned; only its value is replaced.
+            releaseValue(entry->value);
+        }
+    }
 
     entry->key = key;
     entry->value = value;
@@ -128,6 +176,17 @@ bool tableDelete(Table* table, ObjString* key)
     // Find the entry.
     Entry* entry = findEntry(table->entries, table->capacity, key);
     if (entry->key == NULL) return false;
+
+
+    //weak table management
+    //Challenge Question 3, Chapter 26
+    if (!table->isWeak)
+    {
+        // Remove the owning references held by this occupied entry.
+        releaseObject((Obj*)entry->key);
+        releaseValue(entry->value);
+    }
+
 
     // Place a tombstone in the entry.
     entry->key = NULL;
@@ -183,7 +242,8 @@ void tableRemoveWhite(Table* table)
     for (int i = 0; i < table->capacity; i++)
     {
         Entry* entry = &table->entries[i];
-        if (entry->key != NULL && !entry->key->obj.isMarked)
+        // Test the packed mark on the string's embedded base object.
+        if (entry->key != NULL && !isMarked(&entry->key->obj))
         {
             tableDelete(table, entry->key);
         }

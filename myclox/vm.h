@@ -52,5 +52,11 @@ InterpretResult interpret(const char* source);
 void push(Value value);
 Value pop();
 
+//Challenge Question 3, Chapter 26.
+// Temporarily include VM roots in the reference counts during collection.
+void retainVMRoots(void);
+
+// Remove those temporary counts after reference-count reclamation finishes.
+void releaseVMRoots(void);
 
 #endif

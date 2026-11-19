@@ -23,6 +23,9 @@ void writeValueArray(ValueArray* array, Value value)
                                    oldCapacity, array->capacity);
     }
 
+    // Each occupied array slot owns its stored object reference.
+    retainValue(value);
+
     array->values[array->count] = value;
     array->count++;
 }

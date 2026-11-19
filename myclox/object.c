@@ -15,12 +15,23 @@
  *The caller passes in the number of bytes
  *so that there is room for the extra payload fields needed
  *by the specific object type being created.*/
+//Modified for single header handling
+//Challenge Question 1, Chapter 26.
 static Obj* allocateObject(size_t size , ObjType type) \
 {
+
+    // Allocate the complete object and declare the pointer named object.
     Obj* object = (Obj*)reallocate(NULL, 0, size);
-    object->type = type;
-    object->isMarked = false;
-    object->next = vm.objects;
+
+    // Begin with no recorded owning references.
+    // Later stages will maintain this count as references are created and removed.
+    //Challenge Question 3, Chapter 26.
+    object->referenceCount = 0;
+
+    //Store the type and previous list head, with the mark initially cleared.
+    initObjHeader(object, type, vm.objects);
+
+    // Insert the newly initialized object at the head of the allocation list.
     vm.objects = object;
 
     #ifdef DEBUG_LOG_GC
@@ -41,6 +52,10 @@ ObjClosure* newClosure(ObjFunction* function)
 
     ObjClosure* closure = ALLOCATE_OBJ(ObjClosure, OBJ_CLOSURE);
     closure->function = function;
+
+    // The closure owns a reference to its underlying function.
+    retainObject((Obj*)function);
+    
     closure->upvalues = upvalues;
     closure->upvalueCount = function->upvalueCount;
     return closure;

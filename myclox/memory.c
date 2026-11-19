@@ -8,6 +8,15 @@
 #include "compiler.h"
 #include "memory.h"   // Declares our public memory-management functions.
 
+
+
+// Collection totals for this process; shutdown frees are not included.
+//Challenge Question 3, Chapter 26.
+static size_t gcCollectionCount = 0;
+static size_t gcReferenceCountedObjects = 0;
+static size_t gcTracedObjects = 0;
+
+
 //everything starting from here is for challenge question 3, chapter 14
 // Declare the Block type so its definition can contain Block pointers.
 typedef union Block Block;
@@ -370,12 +379,81 @@ void* reallocate(void* pointer, size_t oldSize, size_t newSize)
 
 
 
+//Challenge Question 3, Chapter 26 method.
+void retainObject(Obj* object)
+{
+  // A null pointer does not own or reference an object.
+  if (object == NULL) return;
+
+  // Prevent wrapping the counter back to zero.
+  if (object->referenceCount == SIZE_MAX)
+  {
+    // Report an ownership-count overflow.
+    fprintf(stderr, "Reference count overflow.\n");
+
+    // Stop rather than continue with an invalid count.
+    exit(EXIT_FAILURE);
+  }
+
+  // Record one additional owning reference.
+  object->referenceCount++;
+}
+
+
+//Challenge Question 3, Chapter 26 method.
+void releaseObject(Obj* object)
+{
+  // Releasing a null pointer requires no work.
+  if (object == NULL)
+    return;
+
+  // A zero count cannot lose another recorded reference.
+  if (object->referenceCount == 0)
+  {
+    // Expose an ownership-accounting error instead of wrapping.
+    fprintf(stderr, "Reference count underflow.\n");
+
+    // Stop so we can diagnose the incorrect ownership transfer.
+    exit(EXIT_FAILURE);
+  }
+
+  // Remove one recorded owning reference.
+  object->referenceCount--;
+
+}
+
+
+
+//Challenge Question 3, Chapter 26 method.
+void retainValue(Value value)
+{
+  // Numbers, Booleans, and nil do not reference heap objects.
+  if (!IS_OBJ(value)) return;
+
+  // Retain the object stored inside this Value.
+  retainObject(AS_OBJ(value));
+}
+
+
+//Challenge Question 3, Chapter 26 method.
+void releaseValue(Value value)
+{
+  // Non-object values require no ownership accounting.
+  if (!IS_OBJ(value)) return;
+
+  // Release the object stored inside this Value.
+  releaseObject(AS_OBJ(value));
+}
+
+
+
 void markObject(Obj* object)
 {
   if (object == NULL)
     return;
 
-  if (object->isMarked)
+  // Do not enqueue an object that has already been reached.
+  if (isMarked(object))
     return;
 
   #ifdef DEBUG_LOG_GC
@@ -384,7 +462,8 @@ void markObject(Obj* object)
   printf("\n");
   #endif
 
-  object->isMarked = true;
+  // Set the packed mark flag without changing the other header fields.
+  setIsMarked(object, true);
 
 
   if (vm.grayCapacity < vm.grayCount + 1)
@@ -426,7 +505,7 @@ static void blackenObject(Obj* object)
     printf("\n");
   #endif
 
-  switch (object->type)
+  switch (objType(object))
   {
     case OBJ_CLOSURE:
     {
@@ -453,14 +532,31 @@ static void blackenObject(Obj* object)
       break;
   }
 }
+
+
+//Challenge Question 3, Chapter 26.
+// Report collection activity without including final shutdown cleanup.
+void printGCStats(void)
+{
+  fprintf(stderr,
+          "\nGC statistics:\n"
+          "  Collections: %zu\n"
+          "  Objects reclaimed by reference counting: %zu\n"
+          "  Objects reclaimed by tracing: %zu\n",
+          gcCollectionCount,
+          gcReferenceCountedObjects,
+          gcTracedObjects);
+}
+
+
 static void freeObject(Obj* object)
 {
 
   //executed at the end of an objects lifespan.
   #ifdef DEBUG_LOG_GC
-  printf("%p free type %d\n", (void*)object, object->type);
+  printf("%p free type %d\n", (void*)object, (int)objType(object));
   #endif
-  switch (object->type)
+  switch (objType(object))
   {
     case OBJ_CLOSURE:
     {
@@ -526,7 +622,7 @@ static void markRoots()
 {
   markValue(vm.pendingPush);
   
-  for (Value* slot = vm.stack; slot < vm.stackTop; slot++)
+  for (Value* slot = vm.stack; slot != vm.stackTop; slot++)
   {
     markValue(*slot);
   }
@@ -566,6 +662,132 @@ static void traceReferences()
 }
 
 
+// Remove counted outgoing references without freeing any object storage.
+// Call only while all referenced objects are still allocated.
+//Challenge Question 3, Chapter 26
+static void detachObjectReferences(Obj* object)
+{
+  switch (objType(object))
+  {
+    case OBJ_CLOSURE:
+    {
+      ObjClosure* closure = (ObjClosure*)object;
+
+      // Drop the closure's reference to its function.
+      releaseObject((Obj*)closure->function);
+      closure->function = NULL;
+
+      // Drop every populated upvalue reference.
+      for (int i = 0; i < closure->upvalueCount; i++)
+      {
+        releaseObject((Obj*)closure->upvalues[i]);
+        closure->upvalues[i] = NULL;
+      }
+
+      break;
+    }
+
+    case OBJ_FUNCTION:
+    {
+      ObjFunction* function = (ObjFunction*)object;
+      ValueArray* constants = &function->chunk.constants;
+
+      // Drop references owned by the constant array.
+      for (int i = 0; i < constants->count; i++)
+      {
+        releaseValue(constants->values[i]);
+        constants->values[i] = NIL_VAL;
+      }
+
+      // Drop the function's owning reference to its name.
+      releaseObject((Obj*)function->name);
+      function->name = NULL;
+      break;
+    }
+
+    case OBJ_UPVALUE:
+    {
+      ObjUpvalue* upvalue = (ObjUpvalue*)object;
+
+      // Only a closed upvalue owns its captured value.
+      if (upvalue->location == &upvalue->closed)
+      {
+        releaseValue(upvalue->closed);
+        upvalue->closed = NIL_VAL;
+      }
+
+      break;
+    }
+
+    case OBJ_NATIVE:
+    case OBJ_STRING:
+      // Neither object type owns references to other managed objects.
+      break;
+  }
+}
+
+
+
+
+// Reclaim objects with no counted incoming references.
+// VM and compiler roots must be temporarily retained before calling.
+//Challenge Question 3, Chapter 26.
+static void collectZeroCountObjects(void)
+{
+  bool reclaimed;
+
+  do
+  {
+    reclaimed = false;
+
+    Obj* previous = NULL;
+    Obj* object = vm.objects;
+
+    while (object != NULL)
+    {
+      if (object->referenceCount != 0)
+      {
+        previous = object;
+        object = objNext(object);
+        continue;
+      }
+
+      // Preserve the object and its successor before unlinking.
+      Obj* unreached = object;
+      object = objNext(unreached);
+
+      // Remove the object from the allocation list.
+      if (previous != NULL)
+      {
+        setObjNext(previous, object);
+      }
+      else
+      {
+        vm.objects = object;
+      }
+
+      // The intern table is weak and must not retain a stale key.
+      if (objType(unreached) == OBJ_STRING)
+      {
+        tableDelete(&vm.strings, (ObjString*)unreached);
+      }
+
+      // Dropping outgoing references may expose more zero-count objects.
+      detachObjectReferences(unreached);
+
+      freeObject(unreached);
+
+      // Count objects reclaimed by the zero-reference phase.
+      gcReferenceCountedObjects++;
+
+      reclaimed = true;
+    }
+
+    // Repeat because a decrement may have affected an object
+    // that this traversal had already passed.
+  }
+  while (reclaimed);
+}
 
 //Reclamation of garbage.
 //outer while loop walks the linked list of every object in the heap,
@@ -573,44 +795,98 @@ static void traceReferences()
 //we leave it alone and continue past it. If it is unmarked (white),
 //we unlink it from the list and free it
 //using the freeObject() function we already wrote.
-
+//Modified sweep method to handle the modified handling of the compact values.
+//Challenge Question 1, Chapter 26.
 static void sweep()
 {
+
+  // First detach every dead object's counted outgoing references.
+  // No objects are freed during this pass.
+  for (Obj* candidate = vm.objects;
+       candidate != NULL;
+       candidate = objNext(candidate))
+  {
+    if (!isMarked(candidate))
+    {
+      detachObjectReferences(candidate);
+    }
+  }
+
+  // The existing pass below now unlinks and frees dead objects.
+  // No surviving object precedes the head of the list.
   Obj* previous = NULL;
+
+  // Start at the first allocated object.
   Obj* object = vm.objects;
+
+  // Walk the complete allocation list.
   while (object != NULL)
   {
-    if (object->isMarked)
+    // Reachable objects survive this collection.
+    if (isMarked(object))
     {
-      object->isMarked = false;
+      // Prepare the survivor for the next collection.
+      setIsMarked(object, false);
+
+      // Remember the last surviving object.
       previous = object;
-      object = object->next;
+
+      // Follow the decoded allocation-list link.
+      object = objNext(object);
     }
     else
     {
+      // Save the unreachable object so we can free it.
       Obj* unreached = object;
-      object = object->next;
+
+      // Read its successor before freeing its storage.
+      object = objNext(object);
+
+      // An interior removal must repair the predecessor's link.
       if (previous != NULL)
       {
-        previous->next = object;
+        // Bypass the unreachable object.
+        setObjNext(previous, object);
       }
       else
       {
+        // A head removal changes the VM's list head.
         vm.objects = object;
       }
 
+      // Release the unlinked object.
       freeObject(unreached);
+      // Count objects reclaimed by the tracing backup.
+      gcTracedObjects++;
     }
   }
 }
 
+//Modified collectGarbage for reference counter support.
+//Challenge Question 3, Chapter 26
 void collectGarbage()
 {
+
+  // Count one complete RC-plus-tracing collection.
+  gcCollectionCount++;
+
   #ifdef DEBUG_LOG_GC
   printf("-- gc begin\n");
   size_t before = vm.bytesAllocated;
   #endif
 
+  // Temporarily include roots that are not permanently reference-counted.
+  retainVMRoots();
+  retainCompilerRoots();
+
+  // Reclaim zero-count objects and any resulting zero-count cascade.
+  collectZeroCountObjects();
+
+  // Return counters to their normal heap-reference-only state.
+  releaseCompilerRoots();
+  releaseVMRoots();
+
+  // Keep tracing as the backup for cycles and other unreachable objects.
   markRoots();
   traceReferences();
   tableRemoveWhite(&vm.strings);
@@ -630,13 +906,28 @@ void collectGarbage()
 
 void freeObjects()
 {
+
+  // At shutdown, every remaining object will be destroyed.
+  // Detach references while all their targets are still allocated.
+  for (Obj* candidate = vm.objects; candidate != NULL; candidate = objNext(candidate))
+  {
+    detachObjectReferences(candidate);
+  }
+
   Obj* object = vm.objects;
+
   while (object != NULL)
   {
-    Obj* next = object->next;
+    // Preserve the successor before freeing the current object.
+    Obj* next = objNext(object);
     freeObject(object);
     object = next;
   }
 
+  // The allocation list is now empty.
+  vm.objects = NULL;
+  vm.grayStack = NULL;
+  vm.grayCount = 0;
+  vm.grayCapacity = 0;
   free(vm.grayStack);
 }

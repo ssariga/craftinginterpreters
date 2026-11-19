@@ -87,9 +87,34 @@ void initVM()
     vm.grayStack = NULL;
 
     initTable(&vm.globals);
-    initTable(&vm.strings); //intialize the table.
+    initTable(&vm.strings); //initialize the table.
+
+    //challenge Question 3, Chapter 26
+    // Interning must not keep otherwise unreachable strings alive.
+    vm.strings.isWeak = true;
 
         defineNative("clock", clockNative);
+
+    /*
+    // Measure the complete original header, including compiler padding.
+    //Challenge Question 1, Chapter 26.
+    printf("Original Obj header: %zu bytes\n", sizeof(Obj));
+
+    // Measure each field without allocating or modifying an object.
+    printf("type field: %zu bytes\n", sizeof(((Obj*)0)->type));
+    printf("isMarked field: %zu bytes\n", sizeof(((Obj*)0)->isMarked));
+    printf("next field: %zu bytes\n", sizeof(((Obj*)0)->next));
+
+    // Subtract the field sizes from the total to find the padding.
+    printf("Header padding: %zu bytes\n",
+           sizeof(Obj)
+           - sizeof(((Obj*)0)->type)
+           - sizeof(((Obj*)0)->isMarked)
+           - sizeof(((Obj*)0)->next));
+           */
+
+    // Measure the new header directly, including any compiler padding.
+    printf("Packed Obj header: %zu bytes\n", sizeof(Obj));
 }
 
 //Frees the vm dynamically.
@@ -102,6 +127,11 @@ void freeVM()
     resetStack();
     freeTable(&vm.globals);
     freeTable(&vm.strings);//free the table data.
+
+    #ifdef DEBUG_GC_STATS
+        printGCStats();
+    #endif
+
     freeObjects();
 }
 
@@ -250,6 +280,68 @@ Value pop()
     return *vm.stackTop;
 }
 
+
+
+// Add or remove the temporary reference counts contributed by VM roots.
+//Challenge Question 3, Chapter 26
+static void updateVMRootCounts(bool retain)
+{
+    // Select the counter operation once for this traversal.
+    void (*updateValue)(Value);
+    if (retain)
+    {
+        updateValue = &retainValue;
+    }
+    else
+    {
+        updateValue = &releaseValue;
+    }
+
+    // Count every occupied stack slot as a separate root reference.
+    for (Value* slot = vm.stack; slot != vm.stackTop; slot++)
+    {
+        // Apply the selected operation to this slot's value.
+        updateValue(*slot);
+    }
+
+    // Protect an incoming value while push() is growing the stack.
+    updateValue(vm.pendingPush);
+
+    // An active call frame directly references its executing closure.
+    for (int i = 0; i < vm.frameCount; i++)
+    {
+        // Include that reference even if the closure also appears on the stack.
+        updateValue(OBJ_VAL(vm.frames[i].closure));
+    }
+
+    // The VM directly holds every upvalue in its open-upvalue list.
+    for (ObjUpvalue* upvalue = vm.openUpvalues;
+         upvalue != NULL;
+         upvalue = upvalue->next)
+    {
+        // Temporarily protect each upvalue object itself.
+        updateValue(OBJ_VAL(upvalue));
+    }
+}
+
+// Temporarily protect VM roots before examining zero-count candidates.
+//Challenge Question 3, Chapter 26
+void retainVMRoots(void)
+{
+    // Add one count for each root reference visited above.
+    updateVMRootCounts(true);
+}
+
+// Restore the normal heap-reference counts after the RC phase.
+void releaseVMRoots(void)
+{
+    // Remove exactly the temporary counts added by retainVMRoots().
+    updateVMRootCounts(false);
+}
+
+
+
+
 static Value peek(int distance)
 {
     return vm.stackTop[-1 - distance];
@@ -341,6 +433,12 @@ static void closeUpvalues(Value* last)
     {
         ObjUpvalue* upvalue = vm.openUpvalues;
         upvalue->closed = *upvalue->location;
+        upvalue->closed = *upvalue->location;
+
+        // The closed upvalue now owns the captured value.
+        retainValue(upvalue->closed);
+
+        upvalue->location = &upvalue->closed;
         upvalue->location = &upvalue->closed;
         vm.openUpvalues = upvalue->next;
     }
@@ -548,10 +646,23 @@ static InterpretResult run()
                 push(*frame->closure->upvalues[slot]->location);
                 break;
             }
+            //modified OP_SET_UPVALUE, Challenge Question 3, Chapter 26
             case OP_SET_UPVALUE:
             {
                 uint8_t slot = READ_BYTE();
-                *frame->closure->upvalues[slot]->location = peek(0);
+                ObjUpvalue* upvalue = frame->closure->upvalues[slot];
+                Value value = peek(0);
+
+                // A closed upvalue owns its stored value.
+                // An open upvalue only points to a stack slot.
+                if (upvalue->location == &upvalue->closed)
+                {
+                    // Retain first so assigning the same object is safe.
+                    retainValue(value);
+                    releaseValue(upvalue->closed);
+                }
+
+                *upvalue->location = value;
                 break;
             }
             case OP_EQUAL:
@@ -654,6 +765,9 @@ static InterpretResult run()
                     {
                         closure->upvalues[i] = frame->closure->upvalues[index];
                     }
+
+                    // Each populated closure slot owns its upvalue reference.
+                    retainObject((Obj*)closure->upvalues[i]);
                 }
                 break;
             }

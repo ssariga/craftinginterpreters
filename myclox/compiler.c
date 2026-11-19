@@ -234,6 +234,9 @@ static void initCompiler(Compiler* compiler, FunctionType type)
     if (type != TYPE_SCRIPT)
     {
         current->function->name = copyString(parser.previous.start,parser.previous.length);
+
+        // The function owns its name string.
+        retainObject((Obj*)current->function->name);
     }
 
     Local* local = &current->locals[current->localCount++];
@@ -1075,6 +1078,33 @@ void markCompilerRoots()
     while (compiler != NULL)
     {
         markObject((Obj*)compiler->function);
+        compiler = compiler->enclosing;
+    }
+}
+
+
+//Challenge Question 3, Chapter 26
+// Temporarily protect every function currently being compiled.
+void retainCompilerRoots(void)
+{
+    Compiler* compiler = current;
+
+    while (compiler != NULL)
+    {
+        retainObject((Obj*)compiler->function);
+        compiler = compiler->enclosing;
+    }
+}
+
+//Challenge Question 3, Chapter 26
+// Remove exactly the temporary references added above.
+void releaseCompilerRoots(void)
+{
+    Compiler* compiler = current;
+
+    while (compiler != NULL)
+    {
+        releaseObject((Obj*)compiler->function);
         compiler = compiler->enclosing;
     }
 }

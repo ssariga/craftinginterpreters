@@ -16,6 +16,10 @@ typedef struct {
     int count;
     int capacity;
     Entry* entries;
+
+    //Challenge Question 3, Chapter 26.
+    // Weak tables do not contribute owning reference counts.
+    bool isWeak;
 } Table;
 
 //creates a new empty hash table.

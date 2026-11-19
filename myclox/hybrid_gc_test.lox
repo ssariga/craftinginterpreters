@@ -1,0 +1,130 @@
+//Test Code for challenge question 3, chapter 26
+var passed = 0;
+var failed = 0;
+
+fun check(name, condition)
+{
+  if (condition)
+  {
+    passed = passed + 1;
+  }
+  else
+  {
+    failed = failed + 1;
+    print "FAIL:";
+    print name;
+  }
+}
+
+// Test 1: Removing one reference must not invalidate another.
+var original = "sha" + "red";
+var alias = original;
+original = nil;
+
+check("shared string survives", alias == "shared");
+
+// Test 2: A closed upvalue must retain its captured value.
+fun makeCounter()
+{
+  var count = 0;
+
+  fun next()
+  {
+    count = count + 1;
+    return count;
+  }
+
+  return next;
+}
+
+var counter = makeCounter();
+
+check("closed counter survives",
+      counter() == 1 and counter() == 2);
+
+// Tests 3 and 4: Closed-upvalue replacement and self-assignment.
+fun makeBox()
+{
+  var value = "be" + "fore";
+
+  fun box(next)
+  {
+    // Exercise assignment of an object back to its own slot.
+    value = value;
+
+    if (next != nil)
+    {
+      value = next;
+    }
+
+    return value;
+  }
+
+  return box;
+}
+
+var box = makeBox();
+
+check("closed upvalue self-assignment",
+      box(nil) == "before");
+
+check("closed upvalue replacement",
+      box("af" + "ter") == "after");
+
+// Test 5: A reachable cycle must remain alive.
+fun makeCycle()
+{
+  var self = nil;
+
+  fun cycle()
+  {
+    return self;
+  }
+
+  self = cycle;
+  return cycle;
+}
+
+var liveCycle = makeCycle();
+
+check("reachable cycle survives",
+      liveCycle() == liveCycle);
+
+// Make that cycle unreachable.
+liveCycle = nil;
+
+// Create additional unreachable closure/upvalue cycles.
+var i = 0;
+while (i < 20)
+{
+  makeCycle();
+  i = i + 1;
+}
+
+// Trigger allocations after the cycles become unreachable.
+fun allocatePressure()
+{
+  var text = "";
+
+  var j = 0;
+  while (j < 40)
+  {
+    text = text + "x";
+    j = j + 1;
+  }
+
+  return text;
+}
+
+allocatePressure();
+
+// Test 6: Previously retained objects must survive collection pressure.
+check("live values survive collection pressure",
+      alias == "shared" and
+      counter() == 3 and
+      box(nil) == "after");
+
+print "Passed:";
+print passed;
+print "Failed:";
+print failed;
